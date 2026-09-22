@@ -12,7 +12,7 @@ name: Integration Test
 env:
   # Files measured by the integration coverage gate are the inverse of this regex.
   # Unit-test territory (models, core, utils, _serde) is excluded; integration territory
-  # (CLI, asynch::clients, account/, ledger/, transaction/, faucet) is what remains.
+  # (xrpl-cli, asynch::clients, account/, ledger/, transaction/, faucet) is what remains.
   COVERAGE_IGNORE_REGEX: '(_serde|core|models|utils)/|constants\.rs$|macros\.rs$|lib\.rs$|asynch/transaction/(submit_and_wait|exceptions)\.rs$|wallet/(mod|exceptions)\.rs$|tests/'
 
 jobs:
@@ -143,12 +143,20 @@ jobs:
       - name: Run integration tests under coverage
         run: |
           cargo llvm-cov --no-report --release \
-            --features std,json-rpc,helpers,cli,websocket,integration,confidential-mpt \
+            --features std,json-rpc,helpers,websocket,integration,confidential-mpt \
             --test integration_test \
-            --test cli_integration \
             --test funding \
             --test utils \
             --test test_utils \
+            -- --test-threads=1
+        env:
+          RUST_BACKTRACE: 1
+
+      - name: Run CLI integration tests under coverage
+        run: |
+          cargo llvm-cov --no-report --release \
+            -p xrpl-cli --features integration \
+            --test integration \
             -- --test-threads=1
         env:
           RUST_BACKTRACE: 1

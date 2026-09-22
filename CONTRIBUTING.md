@@ -99,21 +99,25 @@ docker run -p 5005:5005 -p 6006:6006 --rm -it --name xrpld_standalone \
   --volume "$PWD/.ci-config/:/etc/xrpld/" \
   rippleci/xrpld:develop --standalone
 cargo test --release \
-  --features std,json-rpc,helpers,cli,websocket,integration \
+  --features std,json-rpc,helpers,websocket,integration \
   -- --test-threads=1
+
+# The CLI lives in its own crate and drives the built binary
+cargo test --release -p xrpl-cli --features integration -- --test-threads=1
 ```
 
 To run a specific group of tests (e.g. escrow):
 
 ```bash
 cargo test --release \
-  --features std,json-rpc,helpers,cli,websocket,integration \
+  --features std,json-rpc,helpers,websocket,integration \
   escrow -- --test-threads=1
 ```
 
-The feature set matches `.github/workflows/integration_test.yml`; `cli` and
-`websocket` are required for `cli_integration.rs` and the websocket tests in
-`utils.rs` to compile. `--test-threads=1` matches CI and prevents concurrent
+The feature set matches `.github/workflows/integration_test.yml`; `websocket` is
+required for the websocket tests in `utils.rs` to compile. The CLI suite lives
+in `xrpl-cli/tests/integration.rs` and runs from the `xrpl-cli` package with its
+own `integration` feature. `--test-threads=1` matches CI and prevents concurrent
 tests from racing on the shared `xrpld` container.
 
 Breaking down the `docker run` command:
@@ -184,9 +188,14 @@ Matches `.github/workflows/integration_test.yml`:
 ```bash
 # Collect coverage from the integration suite (writes raw profile data)
 cargo llvm-cov --no-report --release \
-  --features std,json-rpc,helpers,cli,websocket,integration \
-  --test integration_test --test cli_integration --test funding \
+  --features std,json-rpc,helpers,websocket,integration \
+  --test integration_test --test funding \
   --test utils --test test_utils \
+  -- --test-threads=1
+
+# Same, for the CLI crate
+cargo llvm-cov --no-report --release \
+  -p xrpl-cli --features integration --test integration \
   -- --test-threads=1
 
 # Generate lcov scoped to integration territory

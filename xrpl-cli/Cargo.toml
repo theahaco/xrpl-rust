@@ -1,0 +1,42 @@
+[package]
+name = "xrpl-cli"
+version = "0.1.0"
+edition = "2021"
+description = "Command line interface for the XRP Ledger, built on xrpl-rust"
+readme = "README.md"
+license = "ISC"
+repository = "https://github.com/sephynox/xrpl-rust"
+keywords = ["xrpl", "cli"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "xrpl"
+path = "src/main.rs"
+
+[dependencies]
+xrpl-rust = { version = "1.2.0", path = "..", default-features = false, features = [
+    "std",
+    "tokio-rt",
+    "core",
+    "wallet",
+    "models",
+    "utils",
+    "helpers",
+    "json-rpc",
+    "websocket",
+] }
+
+bip39 = { version = "2.1.0", features = ["rand_core", "zeroize"] }
+clap = { version = "4.5.39", features = ["derive"] }
+hex = "0.4.3"
+rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror-no-std = "2.0.2"
+tokio = { version = "1.0", features = ["rt-multi-thread"] }
+url = "2.2.2"
+
+[features]
+default = []
+# Integration tests drive the built binary against a standalone node.
+integration = []

@@ -54,9 +54,6 @@ pub async fn open_websocket(
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "cli", test))]
-pub mod mock_cli;
-
 #[cfg(all(feature = "websocket", feature = "std"))]
 pub async fn open_websocket(
     uri: url::Url,

@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** the CLI moved out of the library into its own `xrpl-cli` crate (binary still named `xrpl`). `cargo install xrpl-rust --features cli` becomes `cargo install xrpl-cli`; the `cli` feature and its `clap`/`bip39` dependencies are gone from `xrpl-rust`, so library consumers no longer build an argument parser by default (`cli` was in the default feature set). `xrpl::cli` is no longer part of the library API.
+- The CLI is now one module per command (`src/commands/<group>/<command>.rs`), each owning its `clap` arguments and a `run` method, with `client`/`output`/`error` modules replacing the free helpers that the old 680-line `execute_command` match shared.
+- Commands that reach a node accept `--network mainnet|testnet|devnet|local` alongside `--url`; `--url` wins when both are given and per-command defaults are unchanged (mainnet for queries, testnet for `wallet faucet`, the WebSocket endpoint for `server subscribe`). `-u` is now accepted as the short form of `--url` on every such command rather than only some.
+- **Breaking:** `account tx --limit` is now a `u16` (was `u32`), matching the `limit` field of the `account_tx` request.
+
 - **Breaking:** every model in `models::requests` and `models::transactions` now constructs through a [`bon`](https://bon-rs.com) builder instead of a positional `new(..)`. `Type::new(a, None, None, ...)` becomes `Type::builder(subject).field(value).build()`; the positional constructors are gone. The subject (the transaction's `account`, a request's primary argument) stays positional on `builder(..)`, every other field is a named setter, `maybe_field(opt)` takes an `Option` you already hold, and string/amount setters accept anything `Into`-convertible (`.fee("12")`). Struct fields, field order, and the serialized wire format are unchanged, so struct-literal construction with `..Default::default()` still works. Adding an optional field to a model is no longer a breaking change for callers.
 - **Breaking:** `GenericRequest::new`'s `command` parameter is now `Cow<'a, str>` rather than `impl Into<Cow<'a, str>>`; the builder's `into` conversion replaces it (`GenericRequest::builder("ledger_accept")`).
 - `CommonTransactionBuilder::with_fee` and `CommonFields::with_fee` take `impl Into<XRPAmount<'a>>`, so `.with_fee("12")` replaces `.with_fee("12".into())`.
@@ -28,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `account tx --limit N` set the request's `ledger_index_min` instead of its `limit`, so the flag silently did something unrelated to its name.
+- `account clear-flag` built its `AccountSet` with `set_flag`, making it identical to `account set-flag` — it now clears the flag.
+- `ledger data` passed `--ledger-index` as the request's `ledger_hash` and `--ledger-hash` as its `ledger_index`; the two were swapped.
 - `SubmissionTimeout` `Display` text no longer claims the validated ledger sequence is "greater than" the `LastLedgerSequence` — the retry-cap path can fire while `validated < last`, and the after-loop path also fires on the equality case. Reworded to focus on the outcome (`Transaction not validated before LastLedgerSequence Y (latest validated ledger: X)`) so both paths render correctly.
 
 ## [[v1.2.0]]

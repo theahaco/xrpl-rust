@@ -37,8 +37,6 @@ pub mod account;
 // `asynch` is gated internally on individual features.
 #[cfg(feature = "models")]
 pub mod asynch;
-#[cfg(feature = "cli")]
-pub mod cli;
 #[cfg(any(feature = "json-rpc", feature = "websocket"))]
 pub mod clients;
 pub mod constants;

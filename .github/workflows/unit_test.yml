@@ -33,6 +33,13 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
+      # The CLI is its own crate; its unit tests don't run under the root
+      # package's `cargo test`.
+      - name: Test xrpl-cli
+        run: cargo test --release -p xrpl-cli
+        env:
+          RUST_BACKTRACE: 1
+
       # NOTE: confidential-mpt (which statically links the mpt-crypto native
       # archive via FFI) is NOT tested here — it runs in the cross-platform
       # `confidential_mpt` job below, because its build.rs link path differs per

@@ -141,23 +141,31 @@ features = ["core", "models", "wallet", "utils", "websocket", "json-rpc", "helpe
 
 # Command Line Interface
 
-The XRPL Rust library provides a powerful CLI tool for interacting with the XRP Ledger directly from your terminal. This makes it easy to perform common XRPL operations without writing code.
+The `xrpl-cli` crate provides a CLI tool for interacting with the XRP Ledger directly from your terminal, built on this library. This makes it easy to perform common XRPL operations without writing code. It is a separate crate, so depending on `xrpl-rust` does not pull `clap` into your build.
 
 ## Installation
 
-To install the CLI tool, you can add the `cli` feature to your dependencies:
-
-```toml
-[dependencies.xrpl]
-version = "1.2.0"
-features = ["cli"]
+```bash
+cargo install xrpl-cli
 ```
 
-Or install it directly using Cargo:
+From a checkout of this repository:
 
 ```bash
-cargo install xrpl-rust --features=cli
+cargo install --path xrpl-cli
 ```
+
+## Choosing a network
+
+Every command that talks to a node accepts `--url` or `--network`:
+
+```bash
+xrpl account info --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh --network mainnet
+xrpl server info --network local    # http://127.0.0.1:5005, a standalone node
+xrpl server subscribe --network local   # ws://127.0.0.1:6006, the WebSocket port
+```
+
+`--network` accepts `mainnet`, `testnet`, `devnet` and `local`. `--url` wins when both are given, and commands keep their previous defaults when neither is: mainnet for queries, testnet for `wallet faucet`.
 
 ## Basic Usage
 
@@ -843,7 +851,7 @@ cd xrpl-rust
 cargo test
 
 # Run CLI tests
-cargo test --features cli,std
+cargo test -p xrpl-cli
 
 # Build with all features
 cargo build --all-features
