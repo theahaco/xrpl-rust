@@ -1,13 +1,11 @@
 //! CLI integration tests.
 //!
+//! These drive the built `xrpl` binary as a subprocess.
 //! Most tests run against Docker standalone rippled (localhost:5005).
 //! Genesis account is used for testing since it has unlimited XRP in standalone mode.
 //! Faucet tests use the public testnet since Docker standalone doesn't have a faucet.
 
-#[cfg(all(feature = "integration", feature = "std", feature = "cli"))]
-mod common;
-
-#[cfg(all(feature = "integration", feature = "std", feature = "cli"))]
+#[cfg(feature = "integration")]
 mod cli_tests {
     use std::io::{self};
     use std::process::{Command, Stdio};
@@ -15,10 +13,8 @@ mod cli_tests {
 
     /// Test-specific constants
     mod constants {
-        // Docker standalone JSON-RPC endpoint — canonical definition lives in
-        // tests/common/constants.rs; re-exported here so existing TEST_URL
-        // references keep working.
-        pub use crate::common::constants::STANDALONE_URL as TEST_URL;
+        // Docker standalone JSON-RPC endpoint (see docker-compose.yml).
+        pub const TEST_URL: &str = "http://localhost:5005";
 
         // Public testnet for faucet tests only
         pub const TESTNET_URL: &str = "https://s.altnet.rippletest.net:51234";
