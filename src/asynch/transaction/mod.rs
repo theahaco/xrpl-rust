@@ -133,7 +133,7 @@ where
 {
     transaction.validate()?;
     let txn_blob = encode(transaction)?;
-    let req = Submit::new(None, txn_blob.into(), None);
+    let req = Submit::builder(txn_blob).build();
     let res = client.request(req.into()).await?;
 
     Ok(res.try_into()?)
@@ -213,7 +213,9 @@ where
 async fn get_owner_reserve_from_response(
     client: &impl XRPLAsyncClient,
 ) -> XRPLHelperResult<XRPAmount<'_>> {
-    let owner_reserve_response = client.request(ServerState::new(None).into()).await?;
+    let owner_reserve_response = client
+        .request(ServerState::builder().build().into())
+        .await?;
     let result: ServerStateResult = owner_reserve_response.try_into()?;
     match result.state.validated_ledger {
         Some(validated_ledger) => Ok(validated_ledger.reserve_base),
@@ -401,27 +403,14 @@ mod test_autofill {
             "r9mhdWo1NXVZr2pDnCtC1xwxE85kFtSzYR"
         };
 
-        let mut txn = OfferCreate::new(
-            account.into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("1000000").into(),
-            IssuedCurrencyAmount::new(
+        let mut txn = OfferCreate::builder(account)
+            .taker_gets(XRPAmount::from("1000000"))
+            .taker_pays(IssuedCurrencyAmount::new(
                 "USD".into(),
                 "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq".into(),
                 "0.3".into(),
-            )
-            .into(),
-            None,
-            None,
-        );
+            ))
+            .build();
         let open_result =
             AsyncWebSocketClient::<SingleExecutorMutex, _>::open(ws_url.parse().unwrap()).await;
         let client = match open_result {
@@ -478,7 +467,7 @@ mod test_sign {
         let mut tx = AccountSet {
             common_fields: CommonFields::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("10".into())
+                .with_fee("10")
                 .with_sequence(227234),
             domain: Some(test_constants::EXAMPLE_COM_HEX.into()),
             ..Default::default()
@@ -502,7 +491,7 @@ mod test_sign {
         let mut tx = AccountSet {
             common_fields: CommonFields::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("10".into())
+                .with_fee("10")
                 .with_sequence(227234),
             domain: Some(test_constants::EXAMPLE_COM_HEX.into()),
             ..Default::default()
@@ -557,7 +546,7 @@ mod test_sign {
         let tx = AccountSet {
             common_fields: CommonFields::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(100),
             domain: Some(test_constants::EXAMPLE_COM_HEX.into()),
             ..Default::default()

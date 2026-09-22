@@ -21,22 +21,10 @@ async fn test_check_cash_base() {
         let amount = "500";
 
         // Step 1: create the check
-        let mut create_tx = CheckCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            destination.classic_address.clone().into(), // destination
-            Amount::XRPAmount(XRPAmount::from(amount)), // send_max
-            None,
-            None,
-            None,
-        );
+        let mut create_tx = CheckCreate::builder(wallet.classic_address.clone())
+            .destination(destination.classic_address.clone())
+            .send_max(Amount::XRPAmount(XRPAmount::from(amount)))
+            .build();
 
         sign_and_submit(&mut create_tx, client, &wallet, true, true)
             .await
@@ -47,17 +35,10 @@ async fn test_check_cash_base() {
         // Step 2: get the check ID from account_objects
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Check),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Check)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");
@@ -73,37 +54,20 @@ async fn test_check_cash_base() {
             .to_string();
 
         // Step 3: cash the check (destination receives the funds)
-        let mut cash_tx = CheckCash::new(
-            destination.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            check_id.into(),                                  // check_id
-            Some(Amount::XRPAmount(XRPAmount::from(amount))), // amount (exact)
-            None,                                             // deliver_min
-        );
+        let mut cash_tx = CheckCash::builder(destination.classic_address.clone())
+            .check_id(check_id)
+            .amount(Amount::XRPAmount(XRPAmount::from(amount)))
+            .build();
 
         test_transaction(&mut cash_tx, &destination).await;
 
         // Confirm the check was consumed
         let ao_response2 = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Check),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Check)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects after cash");

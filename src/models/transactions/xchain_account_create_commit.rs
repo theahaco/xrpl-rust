@@ -45,39 +45,37 @@ impl<'a> Transaction<'a, NoFlags> for XChainAccountCreateCommit<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainAccountCreateCommit<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        destination: Cow<'a, str>,
-        xchain_bridge: XChainBridge<'a>,
-        signature_reward: Option<Amount<'a>>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] signature_reward: Option<Amount<'a>>,
     ) -> XChainAccountCreateCommit<'a> {
         XChainAccountCreateCommit {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainAccountCreateCommit,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainAccountCreateCommit)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             destination,
             xchain_bridge,
@@ -150,21 +148,12 @@ mod test {
 
     #[test]
     fn test_successful() {
-        let txn = XChainAccountCreateCommit::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("1000000").into(),
-            Cow::Borrowed(ACCOUNT2),
-            xrp_bridge(),
-            Some(XRPAmount::from("200").into()),
-        );
+        let txn = XChainAccountCreateCommit::builder(Cow::Borrowed(ACCOUNT))
+            .amount(XRPAmount::from("1000000"))
+            .destination(Cow::Borrowed(ACCOUNT2))
+            .xchain_bridge(xrp_bridge())
+            .signature_reward(XRPAmount::from("200"))
+            .build();
         assert_eq!(txn.amount, XRPAmount::from("1000000").into());
         assert_eq!(txn.signature_reward, Some(XRPAmount::from("200").into()));
     }
@@ -173,21 +162,12 @@ mod test {
     #[should_panic]
     fn test_bad_signature_reward() {
         // Simulate a bad signature_reward by using a non-numeric string if your Amount type panics or errors on parse
-        let tx = XChainAccountCreateCommit::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("1000000").into(),
-            Cow::Borrowed(ACCOUNT2),
-            xrp_bridge(),
-            Some(XRPAmount::from("hello").into()), // Should error
-        );
+        let tx = XChainAccountCreateCommit::builder(Cow::Borrowed(ACCOUNT))
+            .amount(XRPAmount::from("1000000"))
+            .destination(Cow::Borrowed(ACCOUNT2))
+            .xchain_bridge(xrp_bridge())
+            .signature_reward(XRPAmount::from("hello"))
+            .build();
 
         tx.validate().unwrap();
     }
@@ -196,21 +176,12 @@ mod test {
     #[should_panic]
     fn test_bad_amount() {
         // Simulate a bad amount by using a non-numeric string if your Amount type panics or errors on parse
-        let tx = XChainAccountCreateCommit::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("hello").into(), // Should error
-            Cow::Borrowed(ACCOUNT2),
-            xrp_bridge(),
-            Some(XRPAmount::from("200").into()),
-        );
+        let tx = XChainAccountCreateCommit::builder(Cow::Borrowed(ACCOUNT))
+            .amount(XRPAmount::from("hello"))
+            .destination(Cow::Borrowed(ACCOUNT2))
+            .xchain_bridge(xrp_bridge())
+            .signature_reward(XRPAmount::from("200"))
+            .build();
 
         tx.validate().unwrap();
     }

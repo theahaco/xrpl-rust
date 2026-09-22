@@ -54,15 +54,17 @@ impl<'a> Request<'a> for BookOffers<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> BookOffers<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        taker_gets: Currency<'a>,
-        taker_pays: Currency<'a>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] taker_gets: Currency<'a>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] taker_pays: Currency<'a>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
-        taker: Option<Cow<'a, str>>,
+        #[builder(into)] taker: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -89,15 +91,12 @@ mod test {
 
     #[test]
     fn test_serde() {
-        let req = BookOffers::new(
-            None,
-            Currency::IssuedCurrency(IssuedCurrency::new("EUR".into(), "rTestIssuer".into())),
-            Currency::XRP(XRP::new()),
-            None,
-            None,
-            None,
-            None,
-        );
+        let req = BookOffers::builder(Currency::IssuedCurrency(IssuedCurrency::new(
+            "EUR".into(),
+            "rTestIssuer".into(),
+        )))
+        .taker_pays(Currency::XRP(XRP::new()))
+        .build();
         let serialized = serde_json::to_string(&req).unwrap();
 
         let deserialized: BookOffers = serde_json::from_str(&serialized).unwrap();

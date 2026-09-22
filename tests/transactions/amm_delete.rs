@@ -31,22 +31,13 @@ async fn test_amm_delete_not_empty() {
         // rippled should reject it with tecAMM_NOT_EMPTY because the pool
         // still holds assets.  This confirms the transaction can be submitted
         // and that the correct validation is applied.
-        let mut tx = AMMDelete::new(
-            pool.lp_wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            Currency::XRP(XRP::new()),
-            Currency::IssuedCurrency(IssuedCurrency::new(
+        let mut tx = AMMDelete::builder(pool.lp_wallet.classic_address.clone())
+            .asset(Currency::XRP(XRP::new()))
+            .asset2(Currency::IssuedCurrency(IssuedCurrency::new(
                 "USD".into(),
                 pool.issuer_wallet.classic_address.clone().into(),
-            )),
-        );
+            )))
+            .build();
 
         let result = sign_and_submit(&mut tx, client, &pool.lp_wallet, true, true)
             .await

@@ -58,15 +58,17 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for OracleDelete<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> OracleDelete<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         oracle_document_id: u32,
@@ -143,7 +145,7 @@ mod tests {
             },
             oracle_document_id: TEST_DOC_ID,
         }
-        .with_fee(TEST_FEE.into())
+        .with_fee(TEST_FEE)
         .with_sequence(TEST_SEQUENCE)
         .with_last_ledger_sequence(TEST_LAST_LEDGER)
         .with_source_tag(42)
@@ -243,7 +245,7 @@ mod tests {
             oracle_document_id: 3,
         }
         .with_ticket_sequence(54321)
-        .with_fee(TEST_FEE.into());
+        .with_fee(TEST_FEE);
 
         assert_eq!(oracle_delete.common_fields.ticket_sequence, Some(54321));
         assert!(oracle_delete.common_fields.sequence.is_none());

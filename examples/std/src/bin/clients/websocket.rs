@@ -9,16 +9,7 @@ fn main() {
     let mut websocket: WebSocketClient<SingleExecutorMutex, _> =
         WebSocketClient::open("wss://xrplcluster.com/".parse().unwrap()).unwrap();
     // subscribe to the ledger stream
-    let subscribe = Subscribe::new(
-        None,
-        None,
-        None,
-        None,
-        Some(vec![StreamParameter::Ledger]),
-        None,
-        None,
-        None,
-    );
+    let subscribe = Subscribe::builder().streams(vec![StreamParameter::Ledger]).build();
     websocket.xrpl_send(subscribe.into()).unwrap();
     // listen for messages
     loop {

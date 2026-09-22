@@ -40,13 +40,15 @@ impl<'a> Request<'a> for ChannelVerify<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ChannelVerify<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        amount: XRPAmount<'a>,
-        channel_id: Cow<'a, str>,
-        public_key: Cow<'a, str>,
-        signature: Cow<'a, str>,
+        #[builder(start_fn, into)] amount: XRPAmount<'a>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] channel_id: Cow<'a, str>,
+        #[builder(into)] public_key: Cow<'a, str>,
+        #[builder(into)] signature: Cow<'a, str>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -67,13 +69,12 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = ChannelVerify::new(
-            Some("cv-1".into()),
-            "1000000".into(),
-            "5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3".into(),
-            "aBQG8RQAzjs1eTKFEAQXr2gS4utcDiEC9wmi7pfUPTi27VCahwgw".into(),
-            "30440220...".into(),
-        );
+        let req = ChannelVerify::builder("1000000")
+            .id("cv-1")
+            .channel_id("5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3")
+            .public_key("aBQG8RQAzjs1eTKFEAQXr2gS4utcDiEC9wmi7pfUPTi27VCahwgw")
+            .signature("30440220...")
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: ChannelVerify = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

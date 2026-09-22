@@ -98,25 +98,10 @@ pub async fn generate_funded_wallet() -> Wallet {
     let seed = xrpl::core::keypairs::generate_seed(None, None).expect("seed");
     let new_wallet = Wallet::new(&seed, 0).expect("new wallet");
 
-    let mut payment = Payment::new(
-        genesis.classic_address.clone().into(),
-        None,                                            // account_txn_id
-        None,                                            // fee
-        None,                                            // flags
-        None,                                            // last_ledger_sequence
-        None,                                            // memos
-        None,                                            // sequence
-        None,                                            // signers
-        None,                                            // source_tag
-        None,                                            // ticket_sequence
-        Amount::XRPAmount(XRPAmount::from("400000000")), // 400 XRP
-        new_wallet.classic_address.clone().into(),
-        None, // deliver_min
-        None, // destination_tag
-        None, // invoice_id
-        None, // paths
-        None, // send_max
-    );
+    let mut payment = Payment::builder(genesis.classic_address.clone())
+        .amount(Amount::XRPAmount(XRPAmount::from("400000000")))
+        .destination(new_wallet.classic_address.clone())
+        .build();
 
     // Create a fresh client scoped to the current Tokio runtime.
     // Using the static CLIENT here causes DispatchGone errors when sync
@@ -156,21 +141,7 @@ pub async fn get_ledger_close_time() -> u64 {
     use xrpl::models::{requests::ledger::Ledger, results};
     let client = get_client().await;
     let response = client
-        .request(
-            Ledger::new(
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some("validated".into()),
-                None,
-                None,
-                None,
-            )
-            .into(),
-        )
+        .request(Ledger::builder().ledger_index("validated").build().into())
         .await
         .expect("Failed to get validated ledger");
     let ledger_result: results::ledger::Ledger<'_> =
@@ -220,17 +191,10 @@ pub async fn get_escrow_offer_sequence(account: &str) -> u32 {
     // Step 1: get account_objects and find the escrow entry
     let ao_response = client
         .request(
-            AccountObjects::new(
-                None,
-                account.into(),
-                None,
-                None,
-                Some(AccountObjectType::Escrow),
-                None,
-                None,
-                None,
-            )
-            .into(),
+            AccountObjects::builder(account)
+                .r#type(AccountObjectType::Escrow)
+                .build()
+                .into(),
         )
         .await
         .expect("get_escrow_offer_sequence: account_objects request failed");
@@ -252,7 +216,12 @@ pub async fn get_escrow_offer_sequence(account: &str) -> u32 {
 
     // Step 2: look up the creating tx to get its validated Sequence
     let tx_response = client
-        .request(Tx::new(None, None, None, None, Some(prev_txn_id.as_str().into())).into())
+        .request(
+            Tx::builder()
+                .transaction(prev_txn_id.as_str())
+                .build()
+                .into(),
+        )
         .await
         .expect("get_escrow_offer_sequence: tx request failed");
 
@@ -559,17 +528,10 @@ pub async fn provision_credential(
 
     let ao_resp = client
         .request(
-            AccountObjects::new(
-                None,
-                subject.classic_address.clone().into(),
-                None,
-                None,
-                Some(AccountObjectType::Credential),
-                None,
-                None,
-                None,
-            )
-            .into(),
+            AccountObjects::builder(subject.classic_address.clone())
+                .r#type(AccountObjectType::Credential)
+                .build()
+                .into(),
         )
         .await
         .expect("provision_credential: account_objects request failed");

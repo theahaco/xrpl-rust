@@ -56,39 +56,37 @@ impl<'a> Transaction<'a, XChainModifyBridgeFlags> for XChainModifyBridge<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainModifyBridge<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<XChainModifyBridgeFlags>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<XChainModifyBridgeFlags>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        xchain_bridge: XChainBridge<'a>,
-        min_account_create_amount: Option<Amount<'a>>,
-        signature_reward: Option<Amount<'a>>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] min_account_create_amount: Option<Amount<'a>>,
+        #[builder(into)] signature_reward: Option<Amount<'a>>,
     ) -> XChainModifyBridge<'a> {
         XChainModifyBridge {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainModifyBridge,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainModifyBridge)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             xchain_bridge,
             min_account_create_amount,
             signature_reward,
@@ -170,166 +168,96 @@ mod test_xchain_modify_bridge {
 
     #[test]
     fn test_successful_modify_bridge() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            xrp_bridge(),
-            Some(XRPAmount::from("1000000").into()),
-            Some(XRPAmount::from("200").into()),
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(xrp_bridge())
+            .min_account_create_amount(XRPAmount::from("1000000"))
+            .signature_reward(XRPAmount::from("200"))
+            .build();
         assert!(txn.validate().is_ok());
     }
 
     #[test]
     fn test_successful_modify_bridge_only_signature_reward() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            iou_bridge(),
-            None,
-            Some(XRPAmount::from("200").into()),
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(iou_bridge())
+            .signature_reward(XRPAmount::from("200"))
+            .build();
         assert!(txn.validate().is_ok());
     }
 
     #[test]
     fn test_successful_modify_bridge_only_min_account_create_amount() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            xrp_bridge(),
-            Some(XRPAmount::from("1000000").into()),
-            None,
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(xrp_bridge())
+            .min_account_create_amount(XRPAmount::from("1000000"))
+            .build();
         assert!(txn.validate().is_ok());
     }
 
     #[test]
     #[should_panic]
     fn test_modify_bridge_empty() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            iou_bridge(),
-            None,
-            None,
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(iou_bridge())
+            .build();
         txn.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_account_not_in_bridge() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT2),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            xrp_bridge(),
-            None,
-            Some(XRPAmount::from("200").into()),
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT2))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(xrp_bridge())
+            .signature_reward(XRPAmount::from("200"))
+            .build();
         txn.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_iou_iou_min_account_create_amount() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            iou_bridge(),
-            Some(XRPAmount::from("1000000").into()),
-            None,
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(iou_bridge())
+            .min_account_create_amount(XRPAmount::from("1000000"))
+            .build();
         txn.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_invalid_signature_reward() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            xrp_bridge(),
-            Some(XRPAmount::from("1000000").into()),
-            Some(Amount::from("hello")),
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(xrp_bridge())
+            .min_account_create_amount(XRPAmount::from("1000000"))
+            .signature_reward(Amount::from("hello"))
+            .build();
         txn.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_invalid_min_account_create_amount() {
-        let txn = XChainModifyBridge::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            xrp_bridge(),
-            Some(Amount::from("hello")),
-            Some(XRPAmount::from("200").into()),
-        );
+        let txn = XChainModifyBridge::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .xchain_bridge(xrp_bridge())
+            .min_account_create_amount(Amount::from("hello"))
+            .signature_reward(XRPAmount::from("200"))
+            .build();
         txn.validate().unwrap();
     }
 }

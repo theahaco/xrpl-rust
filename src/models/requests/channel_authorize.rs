@@ -111,16 +111,18 @@ impl<'a> ChannelAuthorizeError for ChannelAuthorize<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ChannelAuthorize<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        channel_id: Cow<'a, str>,
-        amount: Cow<'a, str>,
-        secret: Option<Cow<'a, str>>,
-        seed: Option<Cow<'a, str>>,
-        seed_hex: Option<Cow<'a, str>>,
-        passphrase: Option<Cow<'a, str>>,
-        key_type: Option<CryptoAlgorithm>,
+        #[builder(start_fn, into)] channel_id: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] amount: Cow<'a, str>,
+        #[builder(into)] secret: Option<Cow<'a, str>>,
+        #[builder(into)] seed: Option<Cow<'a, str>>,
+        #[builder(into)] seed_hex: Option<Cow<'a, str>>,
+        #[builder(into)] passphrase: Option<Cow<'a, str>>,
+        #[builder(into)] key_type: Option<CryptoAlgorithm>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -152,16 +154,14 @@ mod test_channel_authorize_errors {
 
     #[test]
     fn test_fields_error() {
-        let channel_authorize = ChannelAuthorize::new(
-            None,
-            "5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3".into(),
-            "1000000".into(),
-            None,
-            Some("".into()),
-            Some("".into()),
-            None,
-            Some(CryptoAlgorithm::SECP256K1),
-        );
+        let channel_authorize = ChannelAuthorize::builder(
+            "5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3",
+        )
+        .amount("1000000")
+        .seed("")
+        .seed_hex("")
+        .key_type(CryptoAlgorithm::SECP256K1)
+        .build();
 
         assert_eq!(
             channel_authorize
@@ -175,16 +175,13 @@ mod test_channel_authorize_errors {
 
     #[test]
     fn test_serde() {
-        let req = ChannelAuthorize::new(
-            None,
-            "5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3".into(),
-            "1000000".into(),
-            None,
-            Some("".into()),
-            None,
-            None,
-            Some(CryptoAlgorithm::SECP256K1),
-        );
+        let req = ChannelAuthorize::builder(
+            "5DB01B7FFED6B67E6B0414DED11E051D2EE2B7619CE0EAA6286D67A3A4D5BDB3",
+        )
+        .amount("1000000")
+        .seed("")
+        .key_type(CryptoAlgorithm::SECP256K1)
+        .build();
         let serialized = serde_json::to_string(&req).unwrap();
 
         let deserialized: ChannelAuthorize = serde_json::from_str(&serialized).unwrap();

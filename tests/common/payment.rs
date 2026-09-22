@@ -4,23 +4,8 @@ use xrpl::models::{transactions::payment::Payment, Amount, XRPAmount};
 /// None; callers typically autofill (or use `test_transaction` / submit_and_wait)
 /// to populate sequence, fee, and last_ledger_sequence.
 pub fn xrp_payment<'a>(from: String, to: String, drops: impl Into<XRPAmount<'a>>) -> Payment<'a> {
-    Payment::new(
-        from.into(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Amount::XRPAmount(drops.into()),
-        to.into(),
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
+    Payment::builder(from)
+        .amount(Amount::XRPAmount(drops.into()))
+        .destination(to)
+        .build()
 }

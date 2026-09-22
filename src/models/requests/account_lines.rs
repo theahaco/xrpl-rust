@@ -46,14 +46,16 @@ impl<'a> Request<'a> for AccountLines<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountLines<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
-        peer: Option<Cow<'a, str>>,
+        #[builder(into)] peer: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -77,14 +79,12 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountLines::new(
-            Some("al-1".into()),
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(100),
-            Some("rPeer11111111111111111111111111111".into()),
-        );
+        let req = AccountLines::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .id("al-1")
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .limit(100)
+            .peer("rPeer11111111111111111111111111111")
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountLines = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

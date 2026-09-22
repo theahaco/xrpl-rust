@@ -426,7 +426,7 @@ mod tests {
             MPTokenIssuanceCreateFlag::TfMPTCanTransfer,
             MPTokenIssuanceCreateFlag::TfMPTCanLock,
         ])
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(42);
 
         assert_eq!(txn.asset_scale, Some(6));

@@ -14,13 +14,10 @@ async fn test_account_currencies_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = AccountCurrencies::new(
-            None,                                       // id
-            wallet.classic_address.clone().into(),      // account
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            Some(true),                                 // strict
-        );
+        let request = AccountCurrencies::builder(wallet.classic_address.clone())
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .strict(true)
+            .build();
 
         let response = client
             .request(request.into())

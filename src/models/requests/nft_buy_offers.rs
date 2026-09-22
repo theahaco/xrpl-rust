@@ -42,14 +42,16 @@ impl<'a> Request<'a> for NftBuyOffers<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NftBuyOffers<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        nft_id: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] nft_id: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -73,14 +75,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = NftBuyOffers::new(
-            Some("nbo-1".into()),
-            "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000".into(),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(100),
-            None,
-        );
+        let req = NftBuyOffers::builder(
+            "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000",
+        )
+        .id("nbo-1")
+        .ledger_index(LedgerIndex::Str("validated".into()))
+        .limit(100)
+        .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: NftBuyOffers = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

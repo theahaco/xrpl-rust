@@ -14,7 +14,7 @@ async fn test_ledger_closed_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(LedgerClosedRequest::new(None).into())
+            .request(LedgerClosedRequest::builder().build().into())
             .await
             .expect("ledger_closed request failed");
 

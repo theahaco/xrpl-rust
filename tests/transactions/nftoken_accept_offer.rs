@@ -28,22 +28,11 @@ async fn test_nftoken_accept_offer_sell() {
         let buyer = generate_funded_wallet().await;
 
         // Step 1: seller mints an NFT with TfTransferable so it can change hands.
-        let mut mint = NFTokenMint::new(
-            seller.classic_address.clone().into(),
-            None,                                               // account_txn_id
-            None,                                               // fee
-            Some(vec![NFTokenMintFlag::TfTransferable].into()), // flags (position 4!)
-            None,                                               // last_ledger_sequence
-            None,                                               // memos
-            None,                                               // sequence
-            None,                                               // signers
-            None,                                               // source_tag
-            None,                                               // ticket_sequence
-            0,                                                  // nftoken_taxon
-            None,                                               // issuer
-            None,                                               // transfer_fee
-            Some(hex::encode(TEST_NFT_URL).into()),             // uri
-        );
+        let mut mint = NFTokenMint::builder(seller.classic_address.clone())
+            .flags(vec![NFTokenMintFlag::TfTransferable])
+            .nftoken_taxon(0)
+            .uri(hex::encode(TEST_NFT_URL))
+            .build();
 
         sign_and_submit(&mut mint, client, &seller, true, true)
             .await
@@ -54,7 +43,9 @@ async fn test_nftoken_accept_offer_sell() {
         // Get the NFT ID from account_nfts
         let nfts_response = client
             .request(
-                AccountNfts::new(None, seller.classic_address.clone().into(), None, None).into(),
+                AccountNfts::builder(seller.classic_address.clone())
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_nfts");
@@ -66,23 +57,12 @@ async fn test_nftoken_accept_offer_sell() {
         let nftoken_id = nfts_result.nfts[0].nft_id.to_string();
 
         // Step 2: seller creates a sell offer (destination = buyer).
-        let mut create_offer = NFTokenCreateOffer::new(
-            seller.classic_address.clone().into(),
-            None,
-            None,
-            Some(vec![NFTokenCreateOfferFlag::TfSellOffer].into()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("1000000")), // 1 XRP
-            nftoken_id.clone().into(),
-            Some(buyer.classic_address.clone().into()), // destination
-            None,
-            None,
-        );
+        let mut create_offer = NFTokenCreateOffer::builder(seller.classic_address.clone())
+            .flags(vec![NFTokenCreateOfferFlag::TfSellOffer])
+            .amount(Amount::XRPAmount(XRPAmount::from("1000000")))
+            .nftoken_id(nftoken_id.clone())
+            .destination(buyer.classic_address.clone())
+            .build();
 
         sign_and_submit(&mut create_offer, client, &seller, true, true)
             .await
@@ -94,7 +74,7 @@ async fn test_nftoken_accept_offer_sell() {
         // NOTE: account_objects has a parsing bug in the SDK (UnexpectedResultType) for NFT-related
         // objects; nft_sell_offers avoids that path entirely.
         let offers_response = client
-            .request(NftSellOffers::new(None, nftoken_id.clone().into()).into())
+            .request(NftSellOffers::builder(nftoken_id.clone()).build().into())
             .await
             .expect("Failed to query nft_sell_offers");
         let offers_result: results::nft_sell_offers::NFTSellOffers<'_> = offers_response
@@ -105,20 +85,9 @@ async fn test_nftoken_accept_offer_sell() {
         let offer_id = offers_result.offers[0].nft_offer_index.to_string();
 
         // Step 3: buyer accepts the sell offer.
-        let mut accept = NFTokenAcceptOffer::new(
-            buyer.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(offer_id.into()), // nftoken_sell_offer
-            None,                  // nftoken_buy_offer
-            None,                  // nftoken_broker_fee
-        );
+        let mut accept = NFTokenAcceptOffer::builder(buyer.classic_address.clone())
+            .nftoken_sell_offer(offer_id)
+            .build();
 
         test_transaction(&mut accept, &buyer).await;
     })

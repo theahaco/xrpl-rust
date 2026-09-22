@@ -55,12 +55,14 @@ impl<'a> Request<'a> for GetAggregatePrice<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> GetAggregatePrice<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        base_asset: Cow<'a, str>,
-        quote_asset: Cow<'a, str>,
-        oracles: Vec<OracleDescriptor<'a>>,
+        #[builder(start_fn, into)] base_asset: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] quote_asset: Cow<'a, str>,
+        #[builder(into)] oracles: Vec<OracleDescriptor<'a>>,
         trim: Option<u8>,
         time_threshold: Option<u32>,
     ) -> Self {
@@ -86,17 +88,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = GetAggregatePrice::new(
-            None,
-            "XRP".into(),
-            "USD".into(),
-            vec![OracleDescriptor {
+        let req = GetAggregatePrice::builder("XRP")
+            .quote_asset("USD")
+            .oracles(vec![OracleDescriptor {
                 account: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
                 oracle_document_id: 1,
-            }],
-            None,
-            None,
-        );
+            }])
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: GetAggregatePrice = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);
@@ -106,11 +104,10 @@ mod tests {
 
     #[test]
     fn test_with_trim() {
-        let req = GetAggregatePrice::new(
-            Some("test-1".into()),
-            "BTC".into(),
-            "USD".into(),
-            vec![
+        let req = GetAggregatePrice::builder("BTC")
+            .id("test-1")
+            .quote_asset("USD")
+            .oracles(vec![
                 OracleDescriptor {
                     account: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
                     oracle_document_id: 1,
@@ -119,10 +116,10 @@ mod tests {
                     account: "rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW".into(),
                     oracle_document_id: 2,
                 },
-            ],
-            Some(20),
-            Some(60),
-        );
+            ])
+            .trim(20)
+            .time_threshold(60)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         assert!(serialized.contains("\"trim\":20"));
         assert!(serialized.contains("\"time_threshold\":60"));

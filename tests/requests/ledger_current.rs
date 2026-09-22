@@ -14,7 +14,7 @@ async fn test_ledger_current_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(LedgerCurrentRequest::new(None).into())
+            .request(LedgerCurrentRequest::builder().build().into())
             .await
             .expect("ledger_current request failed");
 

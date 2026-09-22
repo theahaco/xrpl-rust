@@ -18,13 +18,9 @@ async fn test_deposit_authorized_base() {
         let wallet1 = crate::common::generate_funded_wallet().await;
         let wallet2 = crate::common::generate_funded_wallet().await;
 
-        let request = DepositAuthorized::new(
-            None,                                   // id
-            wallet2.classic_address.clone().into(), // destination_account
-            wallet1.classic_address.clone().into(), // source_account
-            None,                                   // ledger_hash
-            None,                                   // ledger_index
-        );
+        let request = DepositAuthorized::builder(wallet2.classic_address.clone())
+            .source_account(wallet1.classic_address.clone())
+            .build();
 
         let response = client
             .request(request.into())
@@ -64,14 +60,10 @@ async fn test_deposit_authorized_with_credentials_echoed_in_response() {
 
         let credential_hash = provision_credential(&issuer, &subject, CREDENTIAL_TYPE_KYC).await;
 
-        let request = DepositAuthorized::new(
-            None,
-            destination.classic_address.clone().into(),
-            subject.classic_address.clone().into(),
-            None,
-            None,
-        )
-        .with_credentials(vec![credential_hash.as_str().into()]);
+        let request = DepositAuthorized::builder(destination.classic_address.clone())
+            .source_account(subject.classic_address.clone())
+            .build()
+            .with_credentials(vec![credential_hash.as_str().into()]);
 
         let response = client
             .request(request.into())

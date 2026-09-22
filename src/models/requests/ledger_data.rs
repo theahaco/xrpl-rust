@@ -44,14 +44,16 @@ impl<'a> Request<'a> for LedgerData<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> LedgerData<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
         binary: Option<bool>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -75,14 +77,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = LedgerData::new(
-            Some("ld-1".into()),
-            Some(true),
-            None,
-            Some(LedgerIndex::Int(42)),
-            Some(75),
-            Some(Marker::Int(7)),
-        );
+        let req = LedgerData::builder()
+            .id("ld-1")
+            .binary(true)
+            .ledger_index(LedgerIndex::Int(42))
+            .limit(75)
+            .marker(Marker::Int(7))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: LedgerData = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

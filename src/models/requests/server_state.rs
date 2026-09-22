@@ -38,8 +38,10 @@ impl<'a> Request<'a> for ServerState<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ServerState<'a> {
-    pub fn new(id: Option<Cow<'a, str>>) -> Self {
+    #[builder]
+    pub fn new(#[builder(into)] id: Option<Cow<'a, str>>) -> Self {
         Self {
             ledger_index: Some("current".into()),
             common_fields: CommonFields {

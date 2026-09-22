@@ -13,25 +13,13 @@ async fn test_trust_set_base() {
         let wallet = generate_funded_wallet().await;
         let issuer = generate_funded_wallet().await;
 
-        let mut tx = TrustSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            IssuedCurrencyAmount::new(
+        let mut tx = TrustSet::builder(wallet.classic_address.clone())
+            .limit_amount(IssuedCurrencyAmount::new(
                 "USD".into(),
                 issuer.classic_address.clone().into(),
                 "1000".into(),
-            ),
-            None,
-            None,
-        );
+            ))
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

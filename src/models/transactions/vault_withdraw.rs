@@ -91,39 +91,37 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for VaultWithdraw<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> VaultWithdraw<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        vault_id: Cow<'a, str>,
-        amount: Amount<'a>,
-        destination: Option<Cow<'a, str>>,
+        #[builder(into)] vault_id: Cow<'a, str>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] destination: Option<Cow<'a, str>>,
         destination_tag: Option<u32>,
     ) -> VaultWithdraw<'a> {
         VaultWithdraw {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::VaultWithdraw,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::VaultWithdraw)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             vault_id,
             amount,
             destination,
@@ -217,7 +215,7 @@ mod tests {
             destination: None,
             destination_tag: None,
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -279,7 +277,7 @@ mod tests {
             destination_tag: None,
         }
         .with_ticket_sequence(54321)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_withdraw.common_fields.ticket_sequence, Some(54321));
         assert!(ticket_withdraw.common_fields.sequence.is_none());
@@ -312,7 +310,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(400);
 
         assert_eq!(
@@ -438,7 +436,7 @@ mod tests {
             destination: None,
             destination_tag: None,
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(300);
 
         assert!(vault_withdraw.validate().is_ok());

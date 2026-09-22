@@ -14,14 +14,10 @@ async fn test_gateway_balances_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = GatewayBalances::new(
-            None,                                       // id
-            wallet.classic_address.clone().into(),      // account
-            None,                                       // hotwallet
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            Some(true),                                 // strict
-        );
+        let request = GatewayBalances::builder(wallet.classic_address.clone())
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .strict(true)
+            .build();
 
         let response = client
             .request(request.into())

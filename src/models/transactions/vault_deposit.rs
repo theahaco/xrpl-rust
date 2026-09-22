@@ -74,37 +74,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for VaultDeposit<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> VaultDeposit<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        vault_id: Cow<'a, str>,
-        amount: Amount<'a>,
+        #[builder(into)] vault_id: Cow<'a, str>,
+        #[builder(into)] amount: Amount<'a>,
     ) -> VaultDeposit<'a> {
         VaultDeposit {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::VaultDeposit,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::VaultDeposit)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             vault_id,
             amount,
         }
@@ -178,7 +176,7 @@ mod tests {
             vault_id: VAULT_ID.into(),
             amount: Amount::XRPAmount(XRPAmount::from("1000000")),
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -233,7 +231,7 @@ mod tests {
             amount: Amount::XRPAmount(XRPAmount::from("2000000")),
         }
         .with_ticket_sequence(54321)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_deposit.common_fields.ticket_sequence, Some(54321));
         assert!(ticket_deposit.common_fields.sequence.is_none());
@@ -264,7 +262,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(400);
 
         assert_eq!(
@@ -281,19 +279,13 @@ mod tests {
 
     #[test]
     fn test_new_constructor() {
-        let vault_deposit = VaultDeposit::new(
-            "rNewDepositor444".into(),
-            None,
-            Some("12".into()),
-            Some(7108682),
-            None,
-            Some(100),
-            None,
-            None,
-            None,
-            VAULT_ID.into(),
-            Amount::XRPAmount(XRPAmount::from("10000000")),
-        );
+        let vault_deposit = VaultDeposit::builder("rNewDepositor444")
+            .fee("12")
+            .last_ledger_sequence(7108682)
+            .sequence(100)
+            .vault_id(VAULT_ID)
+            .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+            .build();
 
         assert_eq!(vault_deposit.common_fields.account, "rNewDepositor444");
         assert_eq!(
@@ -315,7 +307,7 @@ mod tests {
             vault_id: VAULT_ID.into(),
             amount: Amount::XRPAmount(XRPAmount::from("1000000")),
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(300);
 
         assert!(vault_deposit.validate().is_ok());

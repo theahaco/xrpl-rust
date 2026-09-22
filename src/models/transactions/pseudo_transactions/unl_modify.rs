@@ -64,38 +64,36 @@ impl<'a> Transaction<'a, NoFlags> for UNLModify<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> UNLModify<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         ledger_sequence: u32,
-        unlmodify_disabling: UNLModifyDisabling,
-        unlmodify_validator: Cow<'a, str>,
+        #[builder(into)] unlmodify_disabling: UNLModifyDisabling,
+        #[builder(into)] unlmodify_validator: Cow<'a, str>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::UNLModify,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::UNLModify)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             ledger_sequence,
             unlmodify_disabling,
             unlmodify_validator,
@@ -109,20 +107,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let txn = UNLModify::new(
-            "rrrrrrrrrrrrrrrrrrrrrhoLvTp".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            56865245,
-            UNLModifyDisabling::Enable,
-            "ED1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF".into(),
-        );
+        let txn = UNLModify::builder("rrrrrrrrrrrrrrrrrrrrrhoLvTp")
+            .ledger_sequence(56865245)
+            .unlmodify_disabling(UNLModifyDisabling::Enable)
+            .unlmodify_validator(
+                "ED1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF",
+            )
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         let deserialized: UNLModify = serde_json::from_str(&serialized).unwrap();
         assert_eq!(txn, deserialized);
@@ -133,20 +124,11 @@ mod tests {
 
     #[test]
     fn test_disabling_disable() {
-        let txn = UNLModify::new(
-            "rrrrrrrrrrrrrrrrrrrrrhoLvTp".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            1,
-            UNLModifyDisabling::Disable,
-            "ED00".into(),
-        );
+        let txn = UNLModify::builder("rrrrrrrrrrrrrrrrrrrrrhoLvTp")
+            .ledger_sequence(1)
+            .unlmodify_disabling(UNLModifyDisabling::Disable)
+            .unlmodify_validator("ED00")
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         assert!(serialized.contains("\"UnlmodifyDisabling\":0"));
     }

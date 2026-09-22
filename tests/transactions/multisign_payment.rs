@@ -25,22 +25,13 @@ async fn test_multisign_payment() {
         let recipient = Wallet::create(None).expect("recipient wallet");
 
         // Register a 2-of-2 signer list on the main account.
-        let mut signer_list = SignerListSet::new(
-            main_wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            2,
-            Some(vec![
+        let mut signer_list = SignerListSet::builder(main_wallet.classic_address.clone())
+            .signer_quorum(2)
+            .signer_entries(vec![
                 SignerEntry::new(signer_a.classic_address.clone(), 1),
                 SignerEntry::new(signer_b.classic_address.clone(), 1),
-            ]),
-        );
+            ])
+            .build();
         crate::common::test_transaction(&mut signer_list, &main_wallet).await;
 
         // Build the payment but do not sign yet. autofill with signers_count=2 so

@@ -11,7 +11,7 @@ async fn test_ping_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(PingRequest::new(None).into())
+            .request(PingRequest::builder().build().into())
             .await
             .expect("ping request failed");
 

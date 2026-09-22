@@ -83,38 +83,36 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for CheckCash<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> CheckCash<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        check_id: Cow<'a, str>,
-        amount: Option<Amount<'a>>,
-        deliver_min: Option<Amount<'a>>,
+        #[builder(into)] check_id: Cow<'a, str>,
+        #[builder(into)] amount: Option<Amount<'a>>,
+        #[builder(into)] deliver_min: Option<Amount<'a>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::CheckCash,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::CheckCash)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             check_id,
             amount,
             deliver_min,
@@ -258,7 +256,7 @@ mod tests {
             ..Default::default()
         }
         .with_amount(Amount::XRPAmount("100000000".into()))
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);

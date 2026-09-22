@@ -116,38 +116,36 @@ impl<'a> NFTokenAcceptOfferError for NFTokenAcceptOffer<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTokenAcceptOffer<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        nftoken_sell_offer: Option<Cow<'a, str>>,
-        nftoken_buy_offer: Option<Cow<'a, str>>,
-        nftoken_broker_fee: Option<Amount<'a>>,
+        #[builder(into)] nftoken_sell_offer: Option<Cow<'a, str>>,
+        #[builder(into)] nftoken_buy_offer: Option<Cow<'a, str>>,
+        #[builder(into)] nftoken_broker_fee: Option<Amount<'a>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::NFTokenAcceptOffer,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::NFTokenAcceptOffer)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             nftoken_sell_offer,
             nftoken_buy_offer,
             nftoken_broker_fee,
@@ -288,7 +286,7 @@ mod tests {
         .with_nftoken_sell_offer(
             "68CD1F6F906494EA08C9CB5CAFA64DFA90D4E834B7151899B73231DE5A0C3B77".into(),
         )
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -338,7 +336,7 @@ mod tests {
         .with_nftoken_buy_offer(
             "1A2B3C4D5E6F7890ABCDEF1234567890FEDCBA0987654321ABCDEF1234567890".into(),
         )
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(456);
 
         assert!(accept_buy_offer.nftoken_sell_offer.is_none());
@@ -369,7 +367,7 @@ mod tests {
             "BUY9876543210FEDCBA0987654321ABCDEF1234567890ABCDEF0987654321".into(),
         )
         .with_nftoken_broker_fee(Amount::XRPAmount(XRPAmount::from("50000"))) // 0.05 XRP broker fee
-        .with_fee("20".into())
+        .with_fee("20")
         .with_sequence(789)
         .with_memo(Memo {
             memo_data: Some("brokered transaction".into()),
@@ -412,7 +410,7 @@ mod tests {
             "rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq".into(),
             "5".into(),
         )))
-        .with_fee("25".into())
+        .with_fee("25")
         .with_sequence(111);
 
         assert!(currency_fee_accept.nftoken_broker_fee.is_some());
@@ -439,7 +437,7 @@ mod tests {
             "TICKET1234567890ABCDEF1234567890FEDCBA0987654321ABCDEF1234567890".into(),
         )
         .with_ticket_sequence(12345)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_accept.common_fields.ticket_sequence, Some(12345));
         assert_eq!(
@@ -494,7 +492,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(333);
 
         assert_eq!(

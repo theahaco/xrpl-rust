@@ -45,12 +45,14 @@ impl<'a> Request<'a> for AccountCurrencies<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountCurrencies<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         strict: Option<bool>,
     ) -> Self {
         Self {
@@ -74,13 +76,11 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountCurrencies::new(
-            Some("acur-1".into()),
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            Some(LedgerIndex::Int(123)),
-            Some(true),
-        );
+        let req = AccountCurrencies::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .id("acur-1")
+            .ledger_index(LedgerIndex::Int(123))
+            .strict(true)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountCurrencies = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

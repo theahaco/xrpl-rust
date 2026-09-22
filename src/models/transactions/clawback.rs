@@ -121,37 +121,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for Clawback<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Clawback<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        holder: Option<Cow<'a, str>>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] holder: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::Clawback,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::Clawback)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             holder,
         }
@@ -242,7 +240,7 @@ mod tests {
             )),
             ..Default::default()
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -384,23 +382,17 @@ mod tests {
 
     #[test]
     fn test_new_constructor() {
-        let clawback = Clawback::new(
-            "rp6abvbTbjoce8ZDJkT6snvxTZSYMBCC9S".into(),
-            None,
-            Some("12".into()),
-            Some(7108682),
-            None,
-            Some(123),
-            None,
-            Some(12345),
-            None,
-            Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
+        let clawback = Clawback::builder("rp6abvbTbjoce8ZDJkT6snvxTZSYMBCC9S")
+            .fee("12")
+            .last_ledger_sequence(7108682)
+            .sequence(123)
+            .source_tag(12345)
+            .amount(Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "FOO".into(),
                 "rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW".into(),
                 "314.159".into(),
-            )),
-            None,
-        );
+            )))
+            .build();
 
         assert_eq!(
             clawback.common_fields.account,

@@ -1,7 +1,6 @@
 // Scenarios:
 //   - single_asset: withdraw 500 XRP drops from an XRP/USD pool (TfSingleAsset flag)
 //
-// NOTE: AMMWithdraw has `flags` at parameter position 4.
 
 use crate::common::amm::setup_amm_pool;
 use crate::common::{test_transaction, with_blockchain_lock};
@@ -14,28 +13,15 @@ async fn test_amm_withdraw_single_asset() {
         let pool = setup_amm_pool().await;
 
         // Withdraw 500 XRP drops from the XRP side of the pool (TfSingleAsset).
-        // flags is at parameter position 4.
-        let mut tx = AMMWithdraw::new(
-            pool.lp_wallet.classic_address.clone().into(),
-            None,                                              // account_txn_id
-            None,                                              // fee
-            Some(vec![AMMWithdrawFlag::TfSingleAsset].into()), // flags (position 4)
-            None,                                              // last_ledger_sequence
-            None,                                              // memos
-            None,                                              // sequence
-            None,                                              // signers
-            None,                                              // source_tag
-            None,                                              // ticket_sequence
-            Currency::XRP(XRP::new()),                         // asset
-            Currency::IssuedCurrency(IssuedCurrency::new(
+        let mut tx = AMMWithdraw::builder(pool.lp_wallet.classic_address.clone())
+            .flags(vec![AMMWithdrawFlag::TfSingleAsset])
+            .asset(Currency::XRP(XRP::new()))
+            .asset2(Currency::IssuedCurrency(IssuedCurrency::new(
                 "USD".into(),
                 pool.issuer_wallet.classic_address.clone().into(),
-            )), // asset2
-            Some(Amount::XRPAmount(XRPAmount::from("500"))),   // amount: 500 drops
-            None,                                              // amount2
-            None,                                              // e_price
-            None,                                              // lp_token_in
-        );
+            )))
+            .amount(Amount::XRPAmount(XRPAmount::from("500")))
+            .build();
 
         test_transaction(&mut tx, &pool.lp_wallet).await;
     })

@@ -137,26 +137,7 @@ mod tests {
     use crate::models::transactions::account_set::AccountSet;
 
     fn dummy_account_set() -> AccountSet<'static> {
-        AccountSet::new(
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        )
+        AccountSet::builder("rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn").build()
     }
 
     #[test]

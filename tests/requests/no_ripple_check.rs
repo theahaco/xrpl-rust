@@ -16,15 +16,11 @@ async fn test_no_ripple_check_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = NoRippleCheckRequest::new(
-            None,                                     // id
-            wallet.classic_address.clone().into(),    // account
-            NoRippleCheckRole::Gateway,               // role
-            None,                                     // ledger_hash
-            Some(LedgerIndex::Str("current".into())), // ledger_index
-            None,                                     // limit
-            Some(true),                               // transactions
-        );
+        let request = NoRippleCheckRequest::builder(wallet.classic_address.clone())
+            .role(NoRippleCheckRole::Gateway)
+            .ledger_index(LedgerIndex::Str("current".into()))
+            .transactions(true)
+            .build();
 
         let response = client
             .request(request.into())

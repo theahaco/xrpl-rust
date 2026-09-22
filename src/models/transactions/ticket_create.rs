@@ -70,36 +70,34 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for TicketCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> TicketCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         ticket_count: u32,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::TicketCreate,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::TicketCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             ticket_count,
         }
     }
@@ -144,7 +142,7 @@ mod tests {
             },
             ticket_count: 10,
         }
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(381)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -201,18 +199,12 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = TicketCreate::new(
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
-            None,
-            Some("10".into()),
-            Some(8_000_000),
-            None,
-            Some(381),
-            None,
-            None,
-            None,
-            5,
-        );
+        let txn = TicketCreate::builder("rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn")
+            .fee("10")
+            .last_ledger_sequence(8_000_000)
+            .sequence(381)
+            .ticket_count(5)
+            .build();
         assert_eq!(txn.get_transaction_type(), &TransactionType::TicketCreate);
         assert_eq!(txn.get_common_fields().sequence, Some(381));
         assert_eq!(txn.ticket_count, 5);

@@ -26,22 +26,10 @@ async fn test_nftoken_create_offer_sell() {
         let wallet = generate_funded_wallet().await;
 
         // Step 1: mint an NFT to get a token ID.
-        let mut mint = NFTokenMint::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,
-            None,
-            None,
-            Some(hex::encode(TEST_NFT_URL).into()),
-        );
+        let mut mint = NFTokenMint::builder(wallet.classic_address.clone())
+            .nftoken_taxon(0)
+            .uri(hex::encode(TEST_NFT_URL))
+            .build();
 
         sign_and_submit(&mut mint, client, &wallet, true, true)
             .await
@@ -52,7 +40,9 @@ async fn test_nftoken_create_offer_sell() {
         // Get the NFT ID from account_nfts
         let nfts_response = client
             .request(
-                AccountNfts::new(None, wallet.classic_address.clone().into(), None, None).into(),
+                AccountNfts::builder(wallet.classic_address.clone())
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_nfts");
@@ -64,23 +54,11 @@ async fn test_nftoken_create_offer_sell() {
         let nftoken_id = nfts_result.nfts[0].nft_id.to_string();
 
         // Step 2: create a sell offer for the minted NFT.
-        let mut offer = NFTokenCreateOffer::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            Some(vec![NFTokenCreateOfferFlag::TfSellOffer].into()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000000")), // 10 XRP
-            nftoken_id.into(),
-            None,
-            None,
-            None,
-        );
+        let mut offer = NFTokenCreateOffer::builder(wallet.classic_address.clone())
+            .flags(vec![NFTokenCreateOfferFlag::TfSellOffer])
+            .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+            .nftoken_id(nftoken_id)
+            .build();
 
         test_transaction(&mut offer, &wallet).await;
     })

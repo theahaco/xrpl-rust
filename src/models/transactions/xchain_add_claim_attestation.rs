@@ -46,45 +46,43 @@ impl<'a> Transaction<'a, NoFlags> for XChainAddClaimAttestation<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainAddClaimAttestation<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<crate::models::XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<crate::models::XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<super::Memo>>,
+        #[builder(into)] memos: Option<Vec<super::Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<super::Signer>>,
+        #[builder(into)] signers: Option<Vec<super::Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        attestation_reward_account: Cow<'a, str>,
-        attestation_signer_account: Cow<'a, str>,
-        other_chain_source: Cow<'a, str>,
-        public_key: Cow<'a, str>,
-        signature: Cow<'a, str>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] attestation_reward_account: Cow<'a, str>,
+        #[builder(into)] attestation_signer_account: Cow<'a, str>,
+        #[builder(into)] other_chain_source: Cow<'a, str>,
+        #[builder(into)] public_key: Cow<'a, str>,
+        #[builder(into)] signature: Cow<'a, str>,
         was_locking_chain_send: u8,
-        xchain_bridge: XChainBridge<'a>,
-        xchain_claim_id: Cow<'a, str>,
-        destination: Option<Cow<'a, str>>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] xchain_claim_id: Cow<'a, str>,
+        #[builder(into)] destination: Option<Cow<'a, str>>,
     ) -> XChainAddClaimAttestation<'a> {
         XChainAddClaimAttestation {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainAddClaimAttestation,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainAddClaimAttestation)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             attestation_reward_account,
             attestation_signer_account,
@@ -116,27 +114,20 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let txn = XChainAddClaimAttestation::new(
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            None,
-            Some(XRPAmount::from("10")),
-            None,
-            None,
-            Some(1),
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000")),
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            "rSrc111111111111111111111111111111".into(),
-            "ED1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF".into(),
-            "30440220ABCDEF".into(),
-            1,
-            xrp_bridge(),
-            "13f".into(),
-            Some("rDest11111111111111111111111111111".into()),
-        );
+        let txn = XChainAddClaimAttestation::builder("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .fee(XRPAmount::from("10"))
+            .sequence(1)
+            .amount(Amount::XRPAmount(XRPAmount::from("10000")))
+            .attestation_reward_account("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .attestation_signer_account("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .other_chain_source("rSrc111111111111111111111111111111")
+            .public_key("ED1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF")
+            .signature("30440220ABCDEF")
+            .was_locking_chain_send(1)
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id("13f")
+            .destination("rDest11111111111111111111111111111")
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         let deserialized: XChainAddClaimAttestation = serde_json::from_str(&serialized).unwrap();
         let reserialized = serde_json::to_string(&deserialized).unwrap();
@@ -149,27 +140,17 @@ mod tests {
 
     #[test]
     fn test_get_transaction_type() {
-        let txn = XChainAddClaimAttestation::new(
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000")),
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            "rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe".into(),
-            "rSrc111111111111111111111111111111".into(),
-            "ED00".into(),
-            "30".into(),
-            0,
-            xrp_bridge(),
-            "1".into(),
-            None,
-        );
+        let txn = XChainAddClaimAttestation::builder("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .amount(Amount::XRPAmount(XRPAmount::from("10000")))
+            .attestation_reward_account("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .attestation_signer_account("rPV4mZjsXfH2HvUSPLNmqz1J8d3Lpv7tpe")
+            .other_chain_source("rSrc111111111111111111111111111111")
+            .public_key("ED00")
+            .signature("30")
+            .was_locking_chain_send(0)
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id("1")
+            .build();
         assert_eq!(
             txn.get_transaction_type(),
             &TransactionType::XChainAddClaimAttestation

@@ -106,39 +106,37 @@ impl<'a> CommonTransactionBuilder<'a, TrustSetFlag> for TrustSet<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> TrustSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<TrustSetFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<TrustSetFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        limit_amount: IssuedCurrencyAmount<'a>,
+        #[builder(into)] limit_amount: IssuedCurrencyAmount<'a>,
         quality_in: Option<u32>,
         quality_out: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::TrustSet,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::TrustSet)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             limit_amount,
             quality_in,
             quality_out,
@@ -223,7 +221,7 @@ mod tests {
         .with_flag(TrustSetFlag::TfClearNoRipple)
         .with_quality_in(1000000000)
         .with_quality_out(500000000)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(12)
         .with_last_ledger_sequence(8007750)
         .with_source_tag(12345);
@@ -259,7 +257,7 @@ mod tests {
             ..Default::default()
         }
         .with_flags(vec![TrustSetFlag::TfSetAuth, TrustSetFlag::TfSetNoRipple])
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(trust_set.has_flag(&TrustSetFlag::TfSetAuth));
         assert!(trust_set.has_flag(&TrustSetFlag::TfSetNoRipple));
@@ -311,7 +309,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(TrustSetFlag::TfSetFreeze)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(freeze_trust_line.has_flag(&TrustSetFlag::TfSetFreeze));
 
@@ -329,7 +327,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(TrustSetFlag::TfClearFreeze)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(unfreeze_trust_line.has_flag(&TrustSetFlag::TfClearFreeze));
     }

@@ -55,40 +55,38 @@ impl<'a> Transaction<'a, NoFlags> for SetFee<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> SetFee<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        base_fee: XRPAmount<'a>,
+        #[builder(into)] base_fee: XRPAmount<'a>,
         reference_fee_units: u32,
         reserve_base: u32,
         reserve_increment: u32,
         ledger_sequence: u32,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::SetFee,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::SetFee)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             base_fee,
             reference_fee_units,
             reserve_base,
@@ -104,22 +102,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let txn = SetFee::new(
-            "rrrrrrrrrrrrrrrrrrrrrhoLvTp".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "10".into(),
-            10,
-            20_000_000,
-            5_000_000,
-            56865245,
-        );
+        let txn = SetFee::builder("rrrrrrrrrrrrrrrrrrrrrhoLvTp")
+            .base_fee("10")
+            .reference_fee_units(10)
+            .reserve_base(20_000_000)
+            .reserve_increment(5_000_000)
+            .ledger_sequence(56865245)
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         let deserialized: SetFee = serde_json::from_str(&serialized).unwrap();
         assert_eq!(txn, deserialized);

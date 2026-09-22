@@ -15,39 +15,20 @@ async fn test_check_create_base() {
         let wallet = generate_funded_wallet().await;
         let destination = generate_funded_wallet().await;
 
-        let mut tx = CheckCreate::new(
-            wallet.classic_address.clone().into(),
-            None,                                       // account_txn_id
-            None,                                       // fee
-            None,                                       // last_ledger_sequence
-            None,                                       // memos
-            None,                                       // sequence
-            None,                                       // signers
-            None,                                       // source_tag
-            None,                                       // ticket_sequence
-            destination.classic_address.clone().into(), // destination
-            Amount::XRPAmount(XRPAmount::from("50")),   // send_max: 50 drops
-            None,                                       // destination_tag
-            None,                                       // expiration
-            None,                                       // invoice_id
-        );
+        let mut tx = CheckCreate::builder(wallet.classic_address.clone())
+            .destination(destination.classic_address.clone())
+            .send_max(Amount::XRPAmount(XRPAmount::from("50")))
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
 
         // Verify the check ledger object was created
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Check),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Check)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");

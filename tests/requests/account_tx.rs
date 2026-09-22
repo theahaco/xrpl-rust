@@ -14,18 +14,9 @@ async fn test_account_tx_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = AccountTx::new(
-            None,                                       // id
-            wallet.classic_address.clone().into(),      // account
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            None,                                       // binary
-            None,                                       // forward
-            None,                                       // ledger_index_min
-            None,                                       // ledger_index_max
-            None,                                       // limit
-            None,                                       // marker
-        );
+        let request = AccountTx::builder(wallet.classic_address.clone())
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .build();
 
         let response = client
             .request(request.into())

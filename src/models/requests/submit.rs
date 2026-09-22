@@ -59,8 +59,14 @@ impl<'a> Request<'a> for Submit<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Submit<'a> {
-    pub fn new(id: Option<Cow<'a, str>>, tx_blob: Cow<'a, str>, fail_hard: Option<bool>) -> Self {
+    #[builder]
+    pub fn new(
+        #[builder(start_fn, into)] tx_blob: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        fail_hard: Option<bool>,
+    ) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::Submit,

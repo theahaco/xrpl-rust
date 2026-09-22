@@ -77,37 +77,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for NFTokenBurn<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTokenBurn<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        nftoken_id: Cow<'a, str>,
-        owner: Option<Cow<'a, str>>,
+        #[builder(into)] nftoken_id: Cow<'a, str>,
+        #[builder(into)] owner: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::NFTokenBurn,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::NFTokenBurn)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             nftoken_id,
             owner,
         }
@@ -163,7 +161,7 @@ mod tests {
             ..Default::default()
         }
         .with_owner("rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B".into())
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -231,7 +229,7 @@ mod tests {
             nftoken_id: "000B013A95F14B0044F78A264E41713C64B5F89242540EE208C3098E00000D65".into(),
             ..Default::default()
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(456);
 
         assert!(self_burn.owner.is_none()); // Burning own NFT
@@ -252,7 +250,7 @@ mod tests {
             ..Default::default()
         }
         .with_owner("rActualOwner789".into()) // The actual owner of the NFT
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(789)
         .with_memo(Memo {
             memo_data: Some("authorized burn".into()),
@@ -285,7 +283,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(12345)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_burn.common_fields.ticket_sequence, Some(12345));
         assert_eq!(
@@ -317,7 +315,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(111);
 
         assert_eq!(

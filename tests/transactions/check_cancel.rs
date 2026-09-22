@@ -19,22 +19,10 @@ async fn test_check_cancel_base() {
         let destination = generate_funded_wallet().await;
 
         // Step 1: create the check
-        let mut create_tx = CheckCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            destination.classic_address.clone().into(), // destination
-            Amount::XRPAmount(XRPAmount::from("50")),   // send_max: 50 drops
-            None,
-            None,
-            None,
-        );
+        let mut create_tx = CheckCreate::builder(wallet.classic_address.clone())
+            .destination(destination.classic_address.clone())
+            .send_max(Amount::XRPAmount(XRPAmount::from("50")))
+            .build();
 
         sign_and_submit(&mut create_tx, client, &wallet, true, true)
             .await
@@ -45,17 +33,10 @@ async fn test_check_cancel_base() {
         // Step 2: get the check ID from account_objects
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Check),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Check)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");
@@ -71,35 +52,19 @@ async fn test_check_cancel_base() {
             .to_string();
 
         // Step 3: cancel the check (creator cancels their own check)
-        let mut cancel_tx = CheckCancel::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            check_id.into(), // check_id
-        );
+        let mut cancel_tx = CheckCancel::builder(wallet.classic_address.clone())
+            .check_id(check_id)
+            .build();
 
         test_transaction(&mut cancel_tx, &wallet).await;
 
         // Confirm the check no longer exists
         let ao_response2 = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Check),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Check)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects after cancel");

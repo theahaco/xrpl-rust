@@ -197,47 +197,45 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for ConfidentialMPTSend<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ConfidentialMPTSend<'a> {
     #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        destination: Cow<'a, str>,
+        #[builder(into)] destination: Cow<'a, str>,
         destination_tag: Option<u32>,
-        mptoken_issuance_id: Cow<'a, str>,
-        sender_encrypted_amount: Cow<'a, str>,
-        destination_encrypted_amount: Cow<'a, str>,
-        issuer_encrypted_amount: Cow<'a, str>,
-        amount_commitment: Cow<'a, str>,
-        balance_commitment: Cow<'a, str>,
-        zk_proof: Cow<'a, str>,
-        auditor_encrypted_amount: Option<Cow<'a, str>>,
-        credential_ids: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] mptoken_issuance_id: Cow<'a, str>,
+        #[builder(into)] sender_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] destination_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] issuer_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] amount_commitment: Cow<'a, str>,
+        #[builder(into)] balance_commitment: Cow<'a, str>,
+        #[builder(into)] zk_proof: Cow<'a, str>,
+        #[builder(into)] auditor_encrypted_amount: Option<Cow<'a, str>>,
+        #[builder(into)] credential_ids: Option<Vec<Cow<'a, str>>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::ConfidentialMPTSend,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::ConfidentialMPTSend)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             destination,
             destination_tag,
             mptoken_issuance_id,
@@ -291,30 +289,18 @@ mod tests {
 
     #[test]
     fn test_new_builder_and_accessors() {
-        let mut tx = ConfidentialMPTSend::new(
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "rLSn6Z3T8uCxbcd1oxwfGQN1Fdn5CyGujK".into(),
-            None,
-            "610F33".repeat(8).into(),
-            "AD".repeat(66).into(),
-            "DF".repeat(66).into(),
-            "BC".repeat(66).into(),
-            "04".repeat(33).into(),
-            "03".repeat(33).into(),
-            "84".repeat(946).into(),
-            None,
-            None,
-        )
-        .with_fee(XRPAmount::from("15000"))
-        .with_sequence(9);
+        let mut tx = ConfidentialMPTSend::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .destination("rLSn6Z3T8uCxbcd1oxwfGQN1Fdn5CyGujK")
+            .mptoken_issuance_id("610F33".repeat(8))
+            .sender_encrypted_amount("AD".repeat(66))
+            .destination_encrypted_amount("DF".repeat(66))
+            .issuer_encrypted_amount("BC".repeat(66))
+            .amount_commitment("04".repeat(33))
+            .balance_commitment("03".repeat(33))
+            .zk_proof("84".repeat(946))
+            .build()
+            .with_fee("15000")
+            .with_sequence(9);
 
         assert_eq!(tx.get_common_fields().sequence, Some(9));
         assert_eq!(tx.get_common_fields().fee, Some(XRPAmount::from("15000")));

@@ -14,7 +14,7 @@ async fn test_server_state_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(ServerStateRequest::new(None).into())
+            .request(ServerStateRequest::builder().build().into())
             .await
             .expect("server_state request failed");
 

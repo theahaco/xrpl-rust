@@ -19,45 +19,19 @@ async fn test_submit_multisigned_base() {
         let signer2 = crate::common::generate_funded_wallet().await;
 
         // Step 1: Set up a SignerList on the main account (quorum=2, each weight=1)
-        let mut signer_list_tx = SignerListSet::new(
-            main_wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            2,    // signer_quorum
-            Some(vec![
+        let mut signer_list_tx = SignerListSet::builder(main_wallet.classic_address.clone())
+            .signer_quorum(2)
+            .signer_entries(vec![
                 SignerEntry::new(signer1.classic_address.clone(), 1),
                 SignerEntry::new(signer2.classic_address.clone(), 1),
-            ]),
-        );
+            ])
+            .build();
         crate::common::test_transaction(&mut signer_list_tx, &main_wallet).await;
 
         // Step 2: Build the transaction to be multisigned (AccountSet to set a domain)
-        let mut tx = AccountSet::new(
-            main_wallet.classic_address.clone().into(),
-            None,                                  // account_txn_id
-            None,                                  // fee
-            None,                                  // flags
-            None,                                  // last_ledger_sequence
-            None,                                  // memos
-            None,                                  // sequence
-            None,                                  // signers
-            None,                                  // source_tag
-            None,                                  // ticket_sequence
-            None,                                  // clear_flag
-            Some("6578616d706c652e636f6d".into()), // domain = "example.com" in hex
-            None,                                  // email_hash
-            None,                                  // message_key
-            None,                                  // set_flag
-            None,                                  // transfer_rate
-            None,                                  // tick_size
-            None,                                  // nftoken_minter
-        );
+        let mut tx = AccountSet::builder(main_wallet.classic_address.clone())
+            .domain("6578616d706c652e636f6d")
+            .build();
 
         // Autofill without signing
         autofill(&mut tx, client, None)
@@ -86,7 +60,7 @@ async fn test_submit_multisigned_base() {
 
         // Step 4: Serialize and submit as multisigned
         let tx_json = serde_json::to_value(&tx).expect("serialize tx failed");
-        let request = SubmitMultisignedRequest::new(None, tx_json, None);
+        let request = SubmitMultisignedRequest::builder(tx_json).build();
 
         let response = client
             .request(request.into())

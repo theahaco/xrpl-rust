@@ -21,7 +21,7 @@ async fn main() {
         ..Default::default()
     }
     .with_domain("6578616d706c652e636f6d".into()) // example.com
-    .with_fee("12".into())
+    .with_fee("12")
     .with_sequence(1); // This will be auto-filled if needed
 
     println!("AccountSet transaction before signing: {:?}", account_set);

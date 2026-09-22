@@ -25,23 +25,11 @@ async fn test_escrow_finish_base() {
         let close_time = get_ledger_close_time().await;
         let finish_after = (close_time + 2) as u32;
 
-        let mut create_tx = EscrowCreate::new(
-            wallet.classic_address.clone().into(),
-            None,                                       // account_txn_id
-            None,                                       // fee
-            None,                                       // last_ledger_sequence
-            None,                                       // memos
-            None,                                       // sequence
-            None,                                       // signers
-            None,                                       // source_tag
-            None,                                       // ticket_sequence
-            "10000".into(),                             // amount: 10 000 drops
-            destination.classic_address.clone().into(), // destination
-            None,                                       // cancel_after
-            None,                                       // condition
-            None,                                       // destination_tag
-            Some(finish_after),                         // finish_after
-        );
+        let mut create_tx = EscrowCreate::builder(wallet.classic_address.clone())
+            .amount("10000")
+            .destination(destination.classic_address.clone())
+            .finish_after(finish_after)
+            .build();
 
         // test_transaction signs, submits, asserts tesSUCCESS, and calls ledger_accept.
         test_transaction(&mut create_tx, &wallet).await;
@@ -57,21 +45,10 @@ async fn test_escrow_finish_base() {
         // so one more ledger_accept ensures that previous close_time > FinishAfter.
         ledger_accept().await;
 
-        let mut finish_tx = EscrowFinish::new(
-            wallet.classic_address.clone().into(),
-            None,                                  // account_txn_id
-            None,                                  // fee
-            None,                                  // last_ledger_sequence
-            None,                                  // memos
-            None,                                  // sequence
-            None,                                  // signers
-            None,                                  // source_tag
-            None,                                  // ticket_sequence
-            wallet.classic_address.clone().into(), // owner (= EscrowCreate account)
-            offer_sequence,                        // offer_sequence
-            None,                                  // condition
-            None,                                  // fulfillment
-        );
+        let mut finish_tx = EscrowFinish::builder(wallet.classic_address.clone())
+            .owner(wallet.classic_address.clone())
+            .offer_sequence(offer_sequence)
+            .build();
 
         test_transaction(&mut finish_tx, &wallet).await;
     })

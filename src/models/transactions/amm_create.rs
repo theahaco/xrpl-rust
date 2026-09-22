@@ -94,38 +94,36 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for AMMCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        amount2: Amount<'a>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] amount2: Amount<'a>,
         trading_fee: u16,
     ) -> AMMCreate<'a> {
         AMMCreate {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AMMCreate,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AMMCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             amount2,
             trading_fee,
@@ -260,7 +258,7 @@ mod tests {
             )),
             trading_fee: 500,
         }
-        .with_fee("12".into()) // From CommonTransactionBuilder trait
+        .with_fee("12") // From CommonTransactionBuilder trait
         .with_sequence(123) // From CommonTransactionBuilder trait
         .with_last_ledger_sequence(7108682) // From CommonTransactionBuilder trait
         .with_source_tag(12345) // From CommonTransactionBuilder trait
@@ -321,7 +319,7 @@ mod tests {
             )),
             trading_fee: 100, // 0.1% trading fee
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_memo(Memo {
             memo_data: Some("XRP-BTC AMM pool".into()),
@@ -359,7 +357,7 @@ mod tests {
             )),
             trading_fee: 50, // 0.05% trading fee
         }
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(200);
 
         assert!(matches!(token_amm.amount, Amount::IssuedCurrencyAmount(_)));
@@ -389,7 +387,7 @@ mod tests {
             )),
             trading_fee: 1000, // 1% trading fee for volatile assets
         }
-        .with_fee("20".into())
+        .with_fee("20")
         .with_sequence(300)
         .with_memo(Memo {
             memo_data: Some("high volatility meme coin AMM".into()),
@@ -419,7 +417,7 @@ mod tests {
             trading_fee: 30, // 0.03% trading fee
         }
         .with_ticket_sequence(12345)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_amm.common_fields.ticket_sequence, Some(12345));
         // When using tickets, sequence should be None or 0
@@ -452,7 +450,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(400);
 
         assert_eq!(
@@ -478,7 +476,7 @@ mod tests {
             )),
             trading_fee: 0, // No trading fee
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(500);
 
         assert_eq!(min_fee_amm.trading_fee, 0);

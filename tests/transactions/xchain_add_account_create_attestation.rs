@@ -2,7 +2,6 @@
 //   - base: witness submits an account-create attestation for a 300 XRP transfer
 //           to a new (unfunded) destination address.
 //
-// NOTE: XChainAddAccountCreateAttestation has NO flags; standard 9 common-field order.
 //
 // The attestation payload differs from XChainAddClaimAttestation:
 //   it includes XChainAccountCreateCount and SignatureReward instead of XChainClaimID.
@@ -74,28 +73,23 @@ async fn test_xchain_add_account_create_attestation_base() {
             .expect("sign attestation failed");
 
         // XChainAddAccountCreateAttestation — witness submits the signed attestation
-        let mut tx = XChainAddAccountCreateAttestation::new(
-            bridge_setup.witness_wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from(amount_drops)), // amount
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_reward_account
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_signer_account
-            dest_wallet.classic_address.clone().into(),                 // destination
-            other_wallet.classic_address.clone().into(),                // other_chain_source
-            bridge_setup.witness_wallet.public_key.clone().into(),      // public_key
-            attestation_sig.into(),                                     // signature
-            Amount::XRPAmount(XRPAmount::from(bridge_setup.signature_reward.as_str())), // signature_reward
-            0,          // was_locking_chain_send
-            "1".into(), // xchain_account_create_count
-            bridge_setup.bridge(),
-        );
+        let mut tx = XChainAddAccountCreateAttestation::builder(
+            bridge_setup.witness_wallet.classic_address.clone(),
+        )
+        .amount(Amount::XRPAmount(XRPAmount::from(amount_drops)))
+        .attestation_reward_account(bridge_setup.witness_wallet.classic_address.clone())
+        .attestation_signer_account(bridge_setup.witness_wallet.classic_address.clone())
+        .destination(dest_wallet.classic_address.clone())
+        .other_chain_source(other_wallet.classic_address.clone())
+        .public_key(bridge_setup.witness_wallet.public_key.clone())
+        .signature(attestation_sig)
+        .signature_reward(Amount::XRPAmount(XRPAmount::from(
+            bridge_setup.signature_reward.as_str(),
+        )))
+        .was_locking_chain_send(0)
+        .xchain_account_create_count("1")
+        .xchain_bridge(bridge_setup.bridge())
+        .build();
 
         test_transaction(&mut tx, &bridge_setup.witness_wallet).await;
     })

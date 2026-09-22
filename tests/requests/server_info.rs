@@ -14,7 +14,7 @@ async fn test_server_info_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(ServerInfoRequest::new(None).into())
+            .request(ServerInfoRequest::builder().build().into())
             .await
             .expect("server_info request failed");
 

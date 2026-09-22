@@ -306,44 +306,42 @@ impl<'a> AccountSetError for AccountSet<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<AccountSetFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<AccountSetFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        clear_flag: Option<AccountSetFlag>,
-        domain: Option<Cow<'a, str>>,
-        email_hash: Option<Cow<'a, str>>,
-        message_key: Option<Cow<'a, str>>,
-        set_flag: Option<AccountSetFlag>,
+        #[builder(into)] clear_flag: Option<AccountSetFlag>,
+        #[builder(into)] domain: Option<Cow<'a, str>>,
+        #[builder(into)] email_hash: Option<Cow<'a, str>>,
+        #[builder(into)] message_key: Option<Cow<'a, str>>,
+        #[builder(into)] set_flag: Option<AccountSetFlag>,
         transfer_rate: Option<u32>,
         tick_size: Option<u32>,
-        nftoken_minter: Option<Cow<'a, str>>,
+        #[builder(into)] nftoken_minter: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AccountSet,
-                account_txn_id,
-                fee,
-                flags,
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AccountSet)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .maybe_flags(flags)
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             clear_flag,
             domain,
             email_hash,
@@ -624,7 +622,7 @@ mod tests {
             "03AB40A0490F9B7ED8DF29D246BF2D6269820A0EE7742ACDD457BEA7C7D0931EDB".into(),
         )
         .with_set_flag(AccountSetFlag::AsfAccountTxnID)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(5)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -693,7 +691,7 @@ mod tests {
             ..Default::default()
         }
         .with_set_flag(AccountSetFlag::AsfDepositAuth)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_memo(Memo {
             memo_data: Some("enabling deposit authorization".into()),
@@ -720,7 +718,7 @@ mod tests {
             ..Default::default()
         }
         .with_transfer_rate(1020000000) // 2% transfer fee
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(200);
 
         assert_eq!(transfer_rate_set.transfer_rate, Some(1020000000));
@@ -739,7 +737,7 @@ mod tests {
             ..Default::default()
         }
         .with_tick_size(5) // 5 significant digits
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(300);
 
         assert_eq!(tick_size_set.tick_size, Some(5));
@@ -759,7 +757,7 @@ mod tests {
         }
         .with_set_flag(AccountSetFlag::AsfAuthorizedNFTokenMinter)
         .with_nftoken_minter("rAuthorizedMinter222".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(400);
 
         assert_eq!(
@@ -785,7 +783,7 @@ mod tests {
             ..Default::default()
         }
         .with_set_flag(AccountSetFlag::AsfDisableMaster)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(500)
         .with_memo(Memo {
             memo_data: Some("disabling master key for security".into()),
@@ -813,7 +811,7 @@ mod tests {
         }
         .with_set_flag(AccountSetFlag::AsfRequireDest)
         .with_ticket_sequence(12345)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(
             ticket_account_set.common_fields.ticket_sequence,
@@ -839,7 +837,7 @@ mod tests {
         }
         .with_set_flag(AccountSetFlag::AsfRequireDest)
         .with_clear_flag(AccountSetFlag::AsfDisallowXRP)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(600);
 
         assert_eq!(

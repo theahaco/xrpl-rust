@@ -129,40 +129,38 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for ConfidentialMPTClawback<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ConfidentialMPTClawback<'a> {
     #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        holder: Cow<'a, str>,
-        mptoken_issuance_id: Cow<'a, str>,
-        mpt_amount: Cow<'a, str>,
-        zk_proof: Cow<'a, str>,
+        #[builder(into)] holder: Cow<'a, str>,
+        #[builder(into)] mptoken_issuance_id: Cow<'a, str>,
+        #[builder(into)] mpt_amount: Cow<'a, str>,
+        #[builder(into)] zk_proof: Cow<'a, str>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::ConfidentialMPTClawback,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::ConfidentialMPTClawback)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             holder,
             mptoken_issuance_id,
             mpt_amount,
@@ -199,25 +197,14 @@ mod tests {
 
     #[test]
     fn test_new_builder_and_accessors() {
-        let mut tx = ConfidentialMPTClawback::new(
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "rLSn6Z3T8uCxbcd1oxwfGQN1Fdn5CyGujK".into(),
-            // Clawback is issuer-only: the issuance ID must embed the submitting
-            // account (rHb9...) as its issuer — sequence(8 hex) || issuerAccountID.
-            "00000001B5F762798A53D543A014CAF8B297CFF8F2F937E8".into(),
-            "1000".into(),
-            "a1".repeat(64).into(),
-        )
-        .with_fee(XRPAmount::from("15000"))
-        .with_sequence(9);
+        let mut tx = ConfidentialMPTClawback::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .holder("rLSn6Z3T8uCxbcd1oxwfGQN1Fdn5CyGujK")
+            .mptoken_issuance_id("00000001B5F762798A53D543A014CAF8B297CFF8F2F937E8")
+            .mpt_amount("1000")
+            .zk_proof("a1".repeat(64))
+            .build()
+            .with_fee("15000")
+            .with_sequence(9);
 
         assert_eq!(tx.get_common_fields().sequence, Some(9));
         assert_eq!(tx.get_common_fields().fee, Some(XRPAmount::from("15000")));

@@ -47,13 +47,15 @@ impl<'a> Request<'a> for DepositAuthorized<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> DepositAuthorized<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        destination_account: Cow<'a, str>,
-        source_account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] destination_account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] source_account: Cow<'a, str>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -85,13 +87,11 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = DepositAuthorized::new(
-            Some("da-1".into()),
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-        );
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .id("da-1")
+            .source_account("rSrc111111111111111111111111111111")
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: DepositAuthorized = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);
@@ -101,16 +101,14 @@ mod tests {
 
     #[test]
     fn test_with_credentials() {
-        let req = DepositAuthorized::new(
-            Some("da-1".into()),
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-        )
-        .with_credentials(vec![
-            "DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001".into(),
-        ]);
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .id("da-1")
+            .source_account("rSrc111111111111111111111111111111")
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .build()
+            .with_credentials(vec![
+                "DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001".into(),
+            ]);
 
         let serialized = serde_json::to_string(&req).unwrap();
         assert!(serialized.contains("\"credentials\":[\"DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001\"]"));
@@ -118,14 +116,10 @@ mod tests {
 
     #[test]
     fn test_credentials_empty_error() {
-        let req = DepositAuthorized::new(
-            None,
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            None,
-        )
-        .with_credentials(vec![]);
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .source_account("rSrc111111111111111111111111111111")
+            .build()
+            .with_credentials(vec![]);
 
         assert_eq!(
             req.get_errors().unwrap_err(),
@@ -151,14 +145,10 @@ mod tests {
             })
             .collect();
         let _ = id;
-        let req = DepositAuthorized::new(
-            None,
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            None,
-        )
-        .with_credentials(creds);
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .source_account("rSrc111111111111111111111111111111")
+            .build()
+            .with_credentials(creds);
 
         assert_eq!(
             req.get_errors().unwrap_err(),
@@ -173,14 +163,10 @@ mod tests {
     #[test]
     fn test_credentials_duplicate_error() {
         let id = "DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001";
-        let req = DepositAuthorized::new(
-            None,
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            None,
-        )
-        .with_credentials(vec![id.into(), id.into()]);
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .source_account("rSrc111111111111111111111111111111")
+            .build()
+            .with_credentials(vec![id.into(), id.into()]);
 
         assert_eq!(
             req.get_errors().unwrap_err(),
@@ -193,17 +179,13 @@ mod tests {
 
     #[test]
     fn test_credentials_case_variant_duplicate_error() {
-        let req = DepositAuthorized::new(
-            None,
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            None,
-        )
-        .with_credentials(vec![
-            "dd40031c6c21164e7673a47c35513d52a6b0f1349a873ee0d188d8994cd4d001".into(),
-            "DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001".into(),
-        ]);
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .source_account("rSrc111111111111111111111111111111")
+            .build()
+            .with_credentials(vec![
+                "dd40031c6c21164e7673a47c35513d52a6b0f1349a873ee0d188d8994cd4d001".into(),
+                "DD40031C6C21164E7673A47C35513D52A6B0F1349A873EE0D188D8994CD4D001".into(),
+            ]);
 
         assert_eq!(
             req.get_errors().unwrap_err(),
@@ -216,13 +198,9 @@ mod tests {
 
     #[test]
     fn test_credentials_none_ok() {
-        let req = DepositAuthorized::new(
-            None,
-            "rDest11111111111111111111111111111".into(),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            None,
-        );
+        let req = DepositAuthorized::builder("rDest11111111111111111111111111111")
+            .source_account("rSrc111111111111111111111111111111")
+            .build();
         assert!(req.get_errors().is_ok());
     }
 }

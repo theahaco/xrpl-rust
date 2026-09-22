@@ -212,7 +212,7 @@ fn test_sync_json_rpc_client_request_and_common_fields() {
     let client = JsonRpcClient::connect(STANDALONE_URL.parse().unwrap());
 
     let response = client
-        .request(ServerInfo::new(None).into())
+        .request(ServerInfo::builder().build().into())
         .expect("sync json-rpc request");
     assert!(response.is_success(), "server_info should succeed");
 

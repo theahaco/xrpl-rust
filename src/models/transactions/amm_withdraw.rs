@@ -111,42 +111,40 @@ impl<'a> CommonTransactionBuilder<'a, AMMWithdrawFlag> for AMMWithdraw<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMWithdraw<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<AMMWithdrawFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<AMMWithdrawFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        asset: Currency<'a>,
-        asset2: Currency<'a>,
-        amount: Option<Amount<'a>>,
-        amount2: Option<Amount<'a>>,
-        e_price: Option<Amount<'a>>,
-        lp_token_in: Option<IssuedCurrencyAmount<'a>>,
+        #[builder(into)] asset: Currency<'a>,
+        #[builder(into)] asset2: Currency<'a>,
+        #[builder(into)] amount: Option<Amount<'a>>,
+        #[builder(into)] amount2: Option<Amount<'a>>,
+        #[builder(into)] e_price: Option<Amount<'a>>,
+        #[builder(into)] lp_token_in: Option<IssuedCurrencyAmount<'a>>,
     ) -> Self {
         AMMWithdraw {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AMMWithdraw,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AMMWithdraw)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             asset,
             asset2,
             amount,
@@ -244,7 +242,7 @@ mod tests {
             "100".into(),
         ))
         .with_flag(AMMWithdrawFlag::TfSingleAsset)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);

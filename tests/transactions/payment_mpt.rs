@@ -63,17 +63,10 @@ async fn test_mpt_payment() {
         //    and assert the on-ledger MPTAmount field matches what was sent.
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    holder.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Mptoken),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(holder.classic_address.clone())
+                    .r#type(AccountObjectType::Mptoken)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");

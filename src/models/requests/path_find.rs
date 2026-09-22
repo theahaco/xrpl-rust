@@ -100,15 +100,17 @@ impl<'a> Request<'a> for PathFind<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> PathFind<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        destination_account: Cow<'a, str>,
-        destination_amount: Currency<'a>,
-        source_account: Cow<'a, str>,
-        subcommand: PathFindSubcommand,
-        paths: Option<Vec<Vec<PathStep<'a>>>>,
-        send_max: Option<Currency<'a>>,
+        #[builder(start_fn, into)] destination_account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] destination_amount: Currency<'a>,
+        #[builder(into)] source_account: Cow<'a, str>,
+        #[builder(into)] subcommand: PathFindSubcommand,
+        #[builder(into)] paths: Option<Vec<Vec<PathStep<'a>>>>,
+        #[builder(into)] send_max: Option<Currency<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -132,15 +134,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = PathFind::new(
-            Some("pf-1".into()),
-            "rDest11111111111111111111111111111".into(),
-            Currency::XRP(XRP::new()),
-            "rSrc111111111111111111111111111111".into(),
-            PathFindSubcommand::Create,
-            None,
-            Some(Currency::XRP(XRP::new())),
-        );
+        let req = PathFind::builder("rDest11111111111111111111111111111")
+            .id("pf-1")
+            .destination_amount(Currency::XRP(XRP::new()))
+            .source_account("rSrc111111111111111111111111111111")
+            .subcommand(PathFindSubcommand::Create)
+            .send_max(Currency::XRP(XRP::new()))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: PathFind = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

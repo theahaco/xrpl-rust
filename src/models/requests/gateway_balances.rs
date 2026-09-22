@@ -44,13 +44,15 @@ impl<'a> Request<'a> for GatewayBalances<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> GatewayBalances<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        hotwallet: Option<Vec<Cow<'a, str>>>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] hotwallet: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         strict: Option<bool>,
     ) -> Self {
         Self {
@@ -76,14 +78,12 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = GatewayBalances::new(
-            Some("gb-1".into()),
-            "rIssuer11111111111111111111111111".into(),
-            Some(vec!["rHot1111111111111111111111111111".into()]),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(true),
-        );
+        let req = GatewayBalances::builder("rIssuer11111111111111111111111111")
+            .id("gb-1")
+            .hotwallet(vec!["rHot1111111111111111111111111111".into()])
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .strict(true)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: GatewayBalances = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

@@ -13,35 +13,19 @@ async fn test_ticket_create_base() {
         let client = get_client().await;
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = TicketCreate::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            2,    // ticket_count: create 2 tickets
-        );
+        let mut tx = TicketCreate::builder(wallet.classic_address.clone())
+            .ticket_count(2)
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
 
         // Verify both ticket objects were created on the ledger.
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Ticket),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::Ticket)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects for tickets");

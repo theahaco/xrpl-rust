@@ -19,23 +19,11 @@ async fn test_escrow_create_base() {
         let close_time = get_ledger_close_time().await;
         let finish_after = (close_time + 2) as u32;
 
-        let mut tx = EscrowCreate::new(
-            wallet.classic_address.clone().into(),
-            None,                                       // account_txn_id
-            None,                                       // fee
-            None,                                       // last_ledger_sequence
-            None,                                       // memos
-            None,                                       // sequence
-            None,                                       // signers
-            None,                                       // source_tag
-            None,                                       // ticket_sequence
-            "10000".into(),                             // amount: 10 000 drops
-            destination.classic_address.clone().into(), // destination
-            None,                                       // cancel_after
-            None,                                       // condition
-            None,                                       // destination_tag
-            Some(finish_after),                         // finish_after
-        );
+        let mut tx = EscrowCreate::builder(wallet.classic_address.clone())
+            .amount("10000")
+            .destination(destination.classic_address.clone())
+            .finish_after(finish_after)
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

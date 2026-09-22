@@ -46,40 +46,38 @@ impl<'a> Transaction<'a, NoFlags> for XChainClaim<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainClaim<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<crate::models::XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<crate::models::XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        destination: Cow<'a, str>,
-        xchain_bridge: XChainBridge<'a>,
-        xchain_claim_id: Cow<'a, str>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] xchain_claim_id: Cow<'a, str>,
         destination_tag: Option<u32>,
     ) -> XChainClaim<'a> {
         XChainClaim {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainClaim,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainClaim)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             destination,
             xchain_bridge,
@@ -132,27 +130,19 @@ mod test_sign {
     #[test]
     fn test_sign_xchain_claim_xrp() {
         let wallet = Wallet::new("sEdVWgwiHxBmFoMGJBoPZf6H1XSLLGd", 0).unwrap();
-        let mut txn = XChainClaim::new(
-            "r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ".into(),
-            None,
-            Some("10".into()),
-            None,
-            None,
-            Some(19048),
-            None,
-            None,
-            None,
-            "123456789".into(),
-            "rJrRMgiRgrU6hDF4pgu5DXQdWyPbY35ErN".into(),
-            XChainBridge::new(
+        let mut txn = XChainClaim::builder("r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ")
+            .fee("10")
+            .sequence(19048)
+            .amount("123456789")
+            .destination("rJrRMgiRgrU6hDF4pgu5DXQdWyPbY35ErN")
+            .xchain_bridge(XChainBridge::new(
                 "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
                 XRP::new().into(),
                 "r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ".into(),
                 XRP::new().into(),
-            ),
-            "3".into(),
-            None,
-        );
+            ))
+            .xchain_claim_id("3")
+            .build();
         sign(&mut txn, &wallet, false).unwrap();
         assert_eq!(
             txn.common_fields.txn_signature,
@@ -167,34 +157,25 @@ mod test_sign {
     #[test]
     fn test_sign_xchain_claim_iou() {
         let wallet = Wallet::new("sEdVWgwiHxBmFoMGJBoPZf6H1XSLLGd", 0).unwrap();
-        let mut txn = XChainClaim::new(
-            "r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ".into(),
-            None,
-            Some("10".into()),
-            None,
-            None,
-            Some(19048),
-            None,
-            None,
-            None,
-            IssuedCurrencyAmount::new(
+        let mut txn = XChainClaim::builder("r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ")
+            .fee("10")
+            .sequence(19048)
+            .amount(IssuedCurrencyAmount::new(
                 "USD".into(),
                 "rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf".into(),
                 "123".into(),
-            )
-            .into(),
-            "rJrRMgiRgrU6hDF4pgu5DXQdWyPbY35ErN".into(),
-            XChainBridge::new(
+            ))
+            .destination("rJrRMgiRgrU6hDF4pgu5DXQdWyPbY35ErN")
+            .xchain_bridge(XChainBridge::new(
                 "rpZc4mVfWUif9CRoHRKKcmhu1nx2xktxBo".into(),
                 IssuedCurrency::new("USD".into(), "rpZc4mVfWUif9CRoHRKKcmhu1nx2xktxBo".into())
                     .into(),
                 "r9LqNeG6qHxjeUocjvVki2XR35weJ9mZgQ".into(),
                 IssuedCurrency::new("USD".into(), "rGWrZyQqhTp9Xu7G5Pkayo7bXjH4k4QYpf".into())
                     .into(),
-            ),
-            "3".into(),
-            None,
-        );
+            ))
+            .xchain_claim_id("3")
+            .build();
         sign(&mut txn, &wallet, false).unwrap();
         assert_eq!(
             txn.common_fields.txn_signature,

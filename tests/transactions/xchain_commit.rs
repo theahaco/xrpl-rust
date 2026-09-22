@@ -1,7 +1,6 @@
 // Scenarios:
 //   - base: committer locks 10_000_000 drops onto the locking chain door (XChainClaimID = 1)
 //
-// NOTE: XChainCommit has NO flags; standard 9 common-field order.
 // xchain_claim_id is Cow<str> even though it is semantically a number.
 
 use crate::common::xchain::setup_bridge;
@@ -17,21 +16,11 @@ async fn test_xchain_commit_base() {
         // Committer — a separate funded wallet on the locking chain.
         let committer = generate_funded_wallet().await;
 
-        let mut tx = XChainCommit::new(
-            committer.classic_address.clone().into(),
-            None,                                           // account_txn_id
-            None,                                           // fee
-            None,                                           // last_ledger_sequence
-            None,                                           // memos
-            None,                                           // sequence
-            None,                                           // signers
-            None,                                           // source_tag
-            None,                                           // ticket_sequence
-            Amount::XRPAmount(XRPAmount::from("10000000")), // amount: 10 XRP drops
-            bridge.bridge(),
-            "1".into(), // xchain_claim_id (Cow<str> representation of the claim ID number)
-            None,       // other_chain_destination
-        );
+        let mut tx = XChainCommit::builder(committer.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+            .xchain_bridge(bridge.bridge())
+            .xchain_claim_id("1")
+            .build();
 
         test_transaction(&mut tx, &committer).await;
     })

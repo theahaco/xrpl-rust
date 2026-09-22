@@ -10,26 +10,9 @@ async fn test_account_set_base() {
     with_blockchain_lock(|| async {
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = AccountSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some("6578616d706c652e636f6d".into()), // hex("example.com")
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let mut tx = AccountSet::builder(wallet.classic_address.clone())
+            .domain("6578616d706c652e636f6d")
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })
@@ -41,30 +24,14 @@ async fn test_account_set_with_memo() {
     with_blockchain_lock(|| async {
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = AccountSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            Some(vec![Memo::new(
+        let mut tx = AccountSet::builder(wallet.classic_address.clone())
+            .memos(vec![Memo::new(
                 Some(hex::encode("Hello, XRPL!").into()),
                 Some(hex::encode("text/plain").into()),
                 Some(hex::encode("application/json").into()),
-            )]),
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some("6578616d706c652e636f6d".into()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+            )])
+            .domain("6578616d706c652e636f6d")
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

@@ -96,38 +96,36 @@ impl<'a> Default for AMMVote<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMVote<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        asset: Currency<'a>,
-        asset2: Currency<'a>,
+        #[builder(into)] asset: Currency<'a>,
+        #[builder(into)] asset2: Currency<'a>,
         trading_fee: Option<u16>,
     ) -> AMMVote<'a> {
         AMMVote {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AMMVote,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AMMVote)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             asset,
             asset2,
             trading_fee,
@@ -255,7 +253,7 @@ mod tests {
             ..Default::default()
         }
         .with_trading_fee(500)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);

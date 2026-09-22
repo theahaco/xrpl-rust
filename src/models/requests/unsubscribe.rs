@@ -72,14 +72,16 @@ impl<'a> Request<'a> for Unsubscribe<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Unsubscribe<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        accounts: Option<Vec<Cow<'a, str>>>,
-        accounts_proposed: Option<Vec<Cow<'a, str>>>,
-        books: Option<Vec<UnsubscribeBook<'a>>>,
-        broken: Option<Cow<'a, str>>,
-        streams: Option<Vec<StreamParameter>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] accounts: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] accounts_proposed: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] books: Option<Vec<UnsubscribeBook<'a>>>,
+        #[builder(into)] broken: Option<Cow<'a, str>>,
+        #[builder(into)] streams: Option<Vec<StreamParameter>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -106,14 +108,11 @@ mod tests {
         // UnsubscribeBook uses asymmetric serialize/deserialize naming
         // (PascalCase vs snake_case), so a full round-trip with books does
         // not work. Round-trip the request without books.
-        let req = Unsubscribe::new(
-            Some("uns-1".into()),
-            Some(vec!["rAcc1111111111111111111111111111".into()]),
-            None,
-            None,
-            None,
-            Some(vec![StreamParameter::Ledger]),
-        );
+        let req = Unsubscribe::builder()
+            .id("uns-1")
+            .accounts(vec!["rAcc1111111111111111111111111111".into()])
+            .streams(vec![StreamParameter::Ledger])
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: Unsubscribe = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

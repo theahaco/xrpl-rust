@@ -29,12 +29,14 @@ impl<'a> Request<'a> for AMMInfo<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMInfo<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        amm_account: Option<Cow<'a, str>>,
-        asset: Option<Currency<'a>>,
-        asset2: Option<Currency<'a>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] amm_account: Option<Cow<'a, str>>,
+        #[builder(into)] asset: Option<Currency<'a>>,
+        #[builder(into)] asset2: Option<Currency<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -55,15 +57,15 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AMMInfo::new(
-            Some("amm-1".into()),
-            Some("rAMM1111111111111111111111111111111".into()),
-            Some(Currency::XRP(XRP::new())),
-            Some(Currency::IssuedCurrency(IssuedCurrency::new(
+        let req = AMMInfo::builder()
+            .id("amm-1")
+            .amm_account("rAMM1111111111111111111111111111111")
+            .asset(Currency::XRP(XRP::new()))
+            .asset2(Currency::IssuedCurrency(IssuedCurrency::new(
                 "USD".into(),
                 "rIssuer11111111111111111111111111".into(),
-            ))),
-        );
+            )))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AMMInfo = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

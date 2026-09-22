@@ -31,8 +31,10 @@ impl<'a> Request<'a> for Ping<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Ping<'a> {
-    pub fn new(id: Option<Cow<'a, str>>) -> Self {
+    #[builder]
+    pub fn new(#[builder(into)] id: Option<Cow<'a, str>>) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::Ping,
@@ -49,7 +51,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = Ping::new(Some("ping-1".into()));
+        let req = Ping::builder().id("ping-1").build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: Ping = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);
@@ -58,7 +60,7 @@ mod tests {
 
     #[test]
     fn test_get_common_fields() {
-        let mut req = Ping::new(None);
+        let mut req = Ping::builder().build();
         assert!(req.get_common_fields().id.is_none());
         req.get_common_fields_mut().id = Some("x".to_string().into());
         assert_eq!(req.get_common_fields().id.as_deref(), Some("x"));

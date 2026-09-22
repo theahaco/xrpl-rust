@@ -10,22 +10,13 @@ async fn test_signer_list_set_add() {
     with_blockchain_lock(|| async {
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = SignerListSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            2, // signer_quorum
-            Some(vec![
+        let mut tx = SignerListSet::builder(wallet.classic_address.clone())
+            .signer_quorum(2)
+            .signer_entries(vec![
                 SignerEntry::new("r5nx8ZkwEbFztnc8Qyi22DE9JYjRzNmvs".to_string(), 1),
                 SignerEntry::new("r3RtUvGw9nMoJ5FuHxuoVJvcENhKtuF9ud".to_string(), 1),
-            ]),
-        );
+            ])
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })
@@ -39,19 +30,9 @@ async fn test_signer_list_set_remove() {
         // Setting SignerQuorum = 0 with no SignerEntries deletes any existing signer list.
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = SignerListSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,    // signer_quorum = 0 removes the signer list
-            None, // no signer_entries
-        );
+        let mut tx = SignerListSet::builder(wallet.classic_address.clone())
+            .signer_quorum(0)
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

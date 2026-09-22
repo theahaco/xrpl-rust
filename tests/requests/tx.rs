@@ -17,25 +17,10 @@ async fn test_tx_base() {
         let destination = crate::common::generate_funded_wallet().await;
 
         // Submit a payment so we have a transaction to look up
-        let mut payment = Payment::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // flags
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            Amount::XRPAmount(XRPAmount::from("1000000")),
-            destination.classic_address.clone().into(),
-            None, // destination_tag
-            None, // invoice_id
-            None, // paths
-            None, // send_max
-            None, // deliver_min
-        );
+        let mut payment = Payment::builder(wallet.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from("1000000")))
+            .destination(destination.classic_address.clone())
+            .build();
 
         let submit_result = sign_and_submit(&mut payment, client, &wallet, true, true)
             .await
@@ -54,13 +39,9 @@ async fn test_tx_base() {
         crate::common::ledger_accept().await;
 
         // Query the transaction by hash
-        let request = TxRequest::new(
-            None,                             // id
-            None,                             // binary
-            None,                             // max_ledger
-            None,                             // min_ledger
-            Some(tx_hash.to_string().into()), // transaction
-        );
+        let request = TxRequest::builder()
+            .transaction(tx_hash.to_string())
+            .build();
 
         let response = client
             .request(request.into())

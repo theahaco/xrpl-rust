@@ -45,38 +45,36 @@ impl<'a> Transaction<'a, NoFlags> for XChainCreateClaimID<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainCreateClaimID<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        other_chain_source: Cow<'a, str>,
-        signature_reward: XRPAmount<'a>,
-        xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] other_chain_source: Cow<'a, str>,
+        #[builder(into)] signature_reward: XRPAmount<'a>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
     ) -> XChainCreateClaimID<'a> {
         XChainCreateClaimID {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainCreateClaimID,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainCreateClaimID)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             other_chain_source,
             signature_reward,
             xchain_bridge,
@@ -116,60 +114,33 @@ mod test_xchain_create_claim_id {
 
     #[test]
     fn test_successful() {
-        let txn = XChainCreateClaimID::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Cow::Borrowed(SOURCE),
-            Cow::Borrowed(SIGNATURE_REWARD).into(),
-            xrp_bridge(),
-        );
+        let txn = XChainCreateClaimID::builder(Cow::Borrowed(ACCOUNT))
+            .other_chain_source(Cow::Borrowed(SOURCE))
+            .signature_reward(Cow::Borrowed(SIGNATURE_REWARD))
+            .xchain_bridge(xrp_bridge())
+            .build();
         assert!(txn.validate().is_ok());
     }
 
     #[test]
     #[should_panic]
     fn test_bad_signature_reward() {
-        let txn = XChainCreateClaimID::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Cow::Borrowed(SOURCE),
-            Cow::Borrowed("hello").into(),
-            xrp_bridge(),
-        );
+        let txn = XChainCreateClaimID::builder(Cow::Borrowed(ACCOUNT))
+            .other_chain_source(Cow::Borrowed(SOURCE))
+            .signature_reward(Cow::Borrowed("hello"))
+            .xchain_bridge(xrp_bridge())
+            .build();
         txn.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_bad_other_chain_source() {
-        let txn = XChainCreateClaimID::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Cow::Borrowed("hello"),
-            Cow::Borrowed(SIGNATURE_REWARD).into(),
-            xrp_bridge(),
-        );
+        let txn = XChainCreateClaimID::builder(Cow::Borrowed(ACCOUNT))
+            .other_chain_source(Cow::Borrowed("hello"))
+            .signature_reward(Cow::Borrowed(SIGNATURE_REWARD))
+            .xchain_bridge(xrp_bridge())
+            .build();
         txn.validate().unwrap();
     }
 }

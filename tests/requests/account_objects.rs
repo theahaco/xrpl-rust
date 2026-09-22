@@ -14,16 +14,9 @@ async fn test_account_objects_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = AccountObjects::new(
-            None,                                       // id
-            wallet.classic_address.clone().into(),      // account
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            None,                                       // type
-            None,                                       // deletion_blockers_only
-            None,                                       // limit
-            None,                                       // marker
-        );
+        let request = AccountObjects::builder(wallet.classic_address.clone())
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .build();
 
         let response = client
             .request(request.into())

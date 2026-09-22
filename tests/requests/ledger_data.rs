@@ -13,14 +13,11 @@ async fn test_ledger_data_base() {
     with_blockchain_lock(|| async {
         let client = crate::common::get_client().await;
 
-        let request = LedgerDataRequest::new(
-            None,                                       // id
-            Some(true),                                 // binary
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            Some(5),                                    // limit
-            None,                                       // marker
-        );
+        let request = LedgerDataRequest::builder()
+            .binary(true)
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .limit(5)
+            .build();
 
         let response = client
             .request(request.into())

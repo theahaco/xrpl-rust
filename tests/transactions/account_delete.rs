@@ -24,19 +24,9 @@ async fn test_account_delete_base() {
         let wallet = generate_funded_wallet().await;
         let destination = generate_funded_wallet().await;
 
-        let mut tx = AccountDelete::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            destination.classic_address.clone().into(),
-            None,
-        );
+        let mut tx = AccountDelete::builder(wallet.classic_address.clone())
+            .destination(destination.classic_address.clone())
+            .build();
 
         // sign_and_submit returns immediately without waiting for validation.
         // A freshly funded account cannot be deleted until 256 ledgers have closed since its
