@@ -177,23 +177,25 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for OracleSet<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> OracleSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         oracle_document_id: u32,
-        provider: Option<Cow<'a, str>>,
-        uri: Option<Cow<'a, str>>,
-        asset_class: Option<Cow<'a, str>>,
+        #[builder(into)] provider: Option<Cow<'a, str>>,
+        #[builder(into)] uri: Option<Cow<'a, str>>,
+        #[builder(into)] asset_class: Option<Cow<'a, str>>,
         last_update_time: u32,
-        price_data_series: Vec<PriceData>,
+        #[builder(into)] price_data_series: Vec<PriceData>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -324,7 +326,7 @@ mod tests {
         .with_uri("https://example.com".into())
         .with_asset_class("63757272656E6379".into())
         .with_last_update_time(743609014)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_last_ledger_sequence(596447)
         .with_source_tag(42);

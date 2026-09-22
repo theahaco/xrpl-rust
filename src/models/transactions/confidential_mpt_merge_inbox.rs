@@ -90,37 +90,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for ConfidentialMPTMergeInbox<'a>
     }
 }
 
+#[bon::bon]
 impl<'a> ConfidentialMPTMergeInbox<'a> {
     #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        mptoken_issuance_id: Cow<'a, str>,
+        #[builder(into)] mptoken_issuance_id: Cow<'a, str>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::ConfidentialMPTMergeInbox,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::ConfidentialMPTMergeInbox)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             mptoken_issuance_id,
         }
     }
@@ -156,20 +154,11 @@ mod tests {
 
     #[test]
     fn test_new_builder_and_accessors() {
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            "rUserAccount111111111111111111111".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "610F33".repeat(8).into(),
-        )
-        .with_fee(XRPAmount::from("20000"))
-        .with_sequence(7);
+        let mut tx = ConfidentialMPTMergeInbox::builder("rUserAccount111111111111111111111")
+            .mptoken_issuance_id("610F33".repeat(8))
+            .build()
+            .with_fee("20000")
+            .with_sequence(7);
 
         // with_fee/with_sequence route through the builder's
         // get_mut_common_fields() + into_self().

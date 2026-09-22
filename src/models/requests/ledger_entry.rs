@@ -351,25 +351,27 @@ impl<'a> Default for LedgerEntry<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> LedgerEntry<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account_root: Option<Cow<'a, str>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] account_root: Option<Cow<'a, str>>,
         binary: Option<bool>,
-        check: Option<Cow<'a, str>>,
-        credential: Option<Credential<'a>>,
-        deposit_preauth: Option<DepositPreauth<'a>>,
-        directory: Option<Directory<'a>>,
-        escrow: Option<Escrow<'a>>,
-        index: Option<Cow<'a, str>>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
-        offer: Option<Offer<'a>>,
-        oracle: Option<OracleIdentifier<'a>>,
-        payment_channel: Option<Cow<'a, str>>,
-        ripple_state: Option<RippleState<'a>>,
-        ticket: Option<Ticket<'a>>,
-        vault: Option<VaultIdentifier<'a>>,
+        #[builder(into)] check: Option<Cow<'a, str>>,
+        #[builder(into)] credential: Option<Credential<'a>>,
+        #[builder(into)] deposit_preauth: Option<DepositPreauth<'a>>,
+        #[builder(into)] directory: Option<Directory<'a>>,
+        #[builder(into)] escrow: Option<Escrow<'a>>,
+        #[builder(into)] index: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(into)] offer: Option<Offer<'a>>,
+        #[builder(into)] oracle: Option<OracleIdentifier<'a>>,
+        #[builder(into)] payment_channel: Option<Cow<'a, str>>,
+        #[builder(into)] ripple_state: Option<RippleState<'a>>,
+        #[builder(into)] ticket: Option<Ticket<'a>>,
+        #[builder(into)] vault: Option<VaultIdentifier<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {

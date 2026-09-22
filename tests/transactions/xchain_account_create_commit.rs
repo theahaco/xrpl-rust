@@ -2,7 +2,6 @@
 //   - base: committer funds creation of a new account on the issuing chain by locking
 //           10_000_000 drops + signature_reward on the locking chain door
 //
-// NOTE: XChainAccountCreateCommit has NO flags; standard 9 common-field order.
 // The `destination` address does not need to be funded (it will be created on the issuing chain).
 
 use crate::common::xchain::setup_bridge;
@@ -23,23 +22,14 @@ async fn test_xchain_account_create_commit_base() {
         let dest_seed = xrpl::core::keypairs::generate_seed(None, None).expect("seed");
         let dest_wallet = Wallet::new(&dest_seed, 0).expect("wallet");
 
-        let mut tx = XChainAccountCreateCommit::new(
-            committer.classic_address.clone().into(),
-            None,                                           // account_txn_id
-            None,                                           // fee
-            None,                                           // last_ledger_sequence
-            None,                                           // memos
-            None,                                           // sequence
-            None,                                           // signers
-            None,                                           // source_tag
-            None,                                           // ticket_sequence
-            Amount::XRPAmount(XRPAmount::from("10000000")), // amount: 10 XRP drops
-            dest_wallet.classic_address.clone().into(),     // destination
-            bridge.bridge(),
-            Some(Amount::XRPAmount(XRPAmount::from(
+        let mut tx = XChainAccountCreateCommit::builder(committer.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+            .destination(dest_wallet.classic_address.clone())
+            .xchain_bridge(bridge.bridge())
+            .signature_reward(Amount::XRPAmount(XRPAmount::from(
                 bridge.signature_reward.as_str(),
-            ))), // signature_reward
-        );
+            )))
+            .build();
 
         test_transaction(&mut tx, &committer).await;
     })

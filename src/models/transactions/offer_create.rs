@@ -114,40 +114,38 @@ impl<'a> CommonTransactionBuilder<'a, OfferCreateFlag> for OfferCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> OfferCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<OfferCreateFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<OfferCreateFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        taker_gets: Amount<'a>,
-        taker_pays: Amount<'a>,
+        #[builder(into)] taker_gets: Amount<'a>,
+        #[builder(into)] taker_pays: Amount<'a>,
         expiration: Option<u32>,
         offer_sequence: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::OfferCreate,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::OfferCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             taker_gets,
             taker_pays,
             expiration,
@@ -291,7 +289,7 @@ mod tests {
         .with_expiration(1640995200) // Some future timestamp
         .with_offer_sequence(123) // Cancel previous offer
         .with_flag(OfferCreateFlag::TfPassive)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(8)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -333,7 +331,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(OfferCreateFlag::TfImmediateOrCancel)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(8);
 
         assert!(ioc_offer.has_flag(&OfferCreateFlag::TfImmediateOrCancel));
@@ -358,7 +356,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(OfferCreateFlag::TfFillOrKill)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(9);
 
         assert!(fok_offer.has_flag(&OfferCreateFlag::TfFillOrKill));
@@ -383,7 +381,7 @@ mod tests {
             ..Default::default()
         }
         .with_flags(vec![OfferCreateFlag::TfSell, OfferCreateFlag::TfPassive])
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(10);
 
         assert!(sell_offer.has_flag(&OfferCreateFlag::TfSell));
@@ -409,7 +407,7 @@ mod tests {
         }
         .with_offer_sequence(456) // Cancel offer with sequence 456
         .with_expiration(1672531200) // New expiration
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(11);
 
         assert_eq!(replace_offer.offer_sequence, Some(456));
@@ -434,7 +432,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(789)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_offer.common_fields.ticket_sequence, Some(789));
         // When using tickets, sequence should be None or 0

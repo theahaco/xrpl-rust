@@ -82,16 +82,18 @@ impl<'a> Request<'a> for AccountObjects<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountObjects<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
-        r#type: Option<AccountObjectType>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(into)] r#type: Option<AccountObjectType>,
         deletion_blockers_only: Option<bool>,
         limit: Option<u16>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -118,16 +120,12 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountObjects::new(
-            Some("ao-1".into()),
-            ACCOUNT_GENESIS.into(),
-            None,
-            None,
-            Some(AccountObjectType::Escrow),
-            Some(true),
-            Some(20),
-            None,
-        );
+        let req = AccountObjects::builder(ACCOUNT_GENESIS)
+            .id("ao-1")
+            .r#type(AccountObjectType::Escrow)
+            .deletion_blockers_only(true)
+            .limit(20)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountObjects = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

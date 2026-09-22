@@ -182,44 +182,42 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for ConfidentialMPTConvert<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> ConfidentialMPTConvert<'a> {
     #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        mptoken_issuance_id: Cow<'a, str>,
-        mpt_amount: Cow<'a, str>,
-        holder_encrypted_amount: Cow<'a, str>,
-        issuer_encrypted_amount: Cow<'a, str>,
-        blinding_factor: Cow<'a, str>,
-        holder_encryption_key: Option<Cow<'a, str>>,
-        auditor_encrypted_amount: Option<Cow<'a, str>>,
-        zk_proof: Option<Cow<'a, str>>,
+        #[builder(into)] mptoken_issuance_id: Cow<'a, str>,
+        #[builder(into)] mpt_amount: Cow<'a, str>,
+        #[builder(into)] holder_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] issuer_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] blinding_factor: Cow<'a, str>,
+        #[builder(into)] holder_encryption_key: Option<Cow<'a, str>>,
+        #[builder(into)] auditor_encrypted_amount: Option<Cow<'a, str>>,
+        #[builder(into)] zk_proof: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::ConfidentialMPTConvert,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::ConfidentialMPTConvert)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             mptoken_issuance_id,
             mpt_amount,
             holder_encrypted_amount,
@@ -292,27 +290,15 @@ mod tests {
 
     #[test]
     fn test_new_builder_and_accessors() {
-        let mut tx = ConfidentialMPTConvert::new(
-            "rUserAccount11111111111111111111".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "610F33".repeat(8).into(),
-            "1000".into(),
-            "AD3F".repeat(33).into(),
-            "BC2E".repeat(33).into(),
-            "EE".repeat(32).into(),
-            None,
-            None,
-            None,
-        )
-        .with_fee(XRPAmount::from("20000"))
-        .with_sequence(7);
+        let mut tx = ConfidentialMPTConvert::builder("rUserAccount11111111111111111111")
+            .mptoken_issuance_id("610F33".repeat(8))
+            .mpt_amount("1000")
+            .holder_encrypted_amount("AD3F".repeat(33))
+            .issuer_encrypted_amount("BC2E".repeat(33))
+            .blinding_factor("EE".repeat(32))
+            .build()
+            .with_fee("20000")
+            .with_sequence(7);
 
         // with_fee/with_sequence route through the builder's
         // get_mut_common_fields() + into_self().

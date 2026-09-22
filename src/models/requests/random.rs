@@ -32,8 +32,10 @@ impl<'a> Request<'a> for Random<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Random<'a> {
-    pub fn new(id: Option<Cow<'a, str>>) -> Self {
+    #[builder]
+    pub fn new(#[builder(into)] id: Option<Cow<'a, str>>) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::Random,
@@ -49,7 +51,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = Random::new(Some("rand-1".into()));
+        let req = Random::builder().id("rand-1").build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: Random = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

@@ -74,36 +74,34 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for CheckCancel<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> CheckCancel<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        check_id: Cow<'a, str>,
+        #[builder(into)] check_id: Cow<'a, str>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::CheckCancel,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::CheckCancel)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             check_id,
         }
     }
@@ -147,7 +145,7 @@ mod tests {
             },
             check_id: "49647F0D748DC3FE26BDACBC57F251AADEFFF391403EC9BF87C97F67E9977FB0".into(),
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -192,18 +190,13 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = CheckCancel::new(
-            "rUn84CUYbNjRoTQ6mSW7BVJPSVJNLb1QLo".into(),
-            None,
-            Some("12".into()),
-            Some(7_000_000),
-            None,
-            Some(123),
-            None,
-            Some(99),
-            None,
-            "49647F0D748DC3FE26BDACBC57F251AADEFFF391403EC9BF87C97F67E9977FB0".into(),
-        );
+        let txn = CheckCancel::builder("rUn84CUYbNjRoTQ6mSW7BVJPSVJNLb1QLo")
+            .fee("12")
+            .last_ledger_sequence(7_000_000)
+            .sequence(123)
+            .source_tag(99)
+            .check_id("49647F0D748DC3FE26BDACBC57F251AADEFFF391403EC9BF87C97F67E9977FB0")
+            .build();
         assert_eq!(txn.get_transaction_type(), &TransactionType::CheckCancel);
         assert_eq!(txn.get_common_fields().sequence, Some(123));
         assert_eq!(

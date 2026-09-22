@@ -182,37 +182,35 @@ impl<'a> SignerListSetError for SignerListSet<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> SignerListSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         signer_quorum: u32,
-        signer_entries: Option<Vec<SignerEntry>>,
+        #[builder(into)] signer_entries: Option<Vec<SignerEntry>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::SignerListSet,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::SignerListSet)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             signer_quorum,
             signer_entries,
         }
@@ -429,7 +427,7 @@ mod tests {
             SignerEntry::new("rUpy3eEg8rqjqfUoLeBnZkscbKbFsKXC3v".to_string(), 1),
             SignerEntry::new("raKEEVSGnKSD9Zyvxu4z6Pqpm4ABH8FS6n".to_string(), 1),
         ])
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -460,7 +458,7 @@ mod tests {
         .add_signer_entry("rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW".to_string(), 2)
         .add_signer_entry("rUpy3eEg8rqjqfUoLeBnZkscbKbFsKXC3v".to_string(), 1)
         .add_signer_entry("raKEEVSGnKSD9Zyvxu4z6Pqpm4ABH8FS6n".to_string(), 1)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(signer_list_set.signer_quorum, 3);
         assert_eq!(signer_list_set.signer_entries.as_ref().unwrap().len(), 3);

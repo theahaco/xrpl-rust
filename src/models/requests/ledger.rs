@@ -68,15 +68,17 @@ impl<'a> Request<'a> for Ledger<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Ledger<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
         accounts: Option<bool>,
         binary: Option<bool>,
         expand: Option<bool>,
         full: Option<bool>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<Cow<'a, str>>,
         owner_funds: Option<bool>,
         queue: Option<bool>,
         transactions: Option<bool>,

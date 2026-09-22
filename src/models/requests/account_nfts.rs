@@ -39,12 +39,14 @@ impl<'a> Request<'a> for AccountNfts<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountNfts<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
         limit: Option<u32>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -63,12 +65,9 @@ mod tests {
     use super::*;
     #[test]
     fn test_account_nfts_serialization() {
-        let req = AccountNfts::new(
-            None,
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            Some(10),
-            None,
-        );
+        let req = AccountNfts::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .limit(10)
+            .build();
         let json = serde_json::to_string(&req).unwrap();
 
         assert!(json.contains("\"account\""));

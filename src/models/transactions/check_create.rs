@@ -85,40 +85,38 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for CheckCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> CheckCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        destination: Cow<'a, str>,
-        send_max: Amount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] send_max: Amount<'a>,
         destination_tag: Option<u32>,
         expiration: Option<u32>,
-        invoice_id: Option<Cow<'a, str>>,
+        #[builder(into)] invoice_id: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::CheckCreate,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::CheckCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             destination,
             send_max,
             destination_tag,
@@ -192,7 +190,7 @@ mod tests {
         .with_destination_tag(1)
         .with_expiration(570113521)
         .with_invoice_id("6F1DFD1D0FE8A32E40E1F2C05CF1C15545BAB56B617F9C6C2D63A6B704BEF59B".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -245,22 +243,16 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = CheckCreate::new(
-            "rUn84CUYbNjRoTQ6mSW7BVJPSVJNLb1QLo".into(),
-            None,
-            Some("12".into()),
-            Some(8_000_000),
-            None,
-            Some(123),
-            None,
-            None,
-            None,
-            "rfkE1aSy9G8Upk4JssnwBxhEv5p4mn2KTy".into(),
-            "100000000".into(),
-            Some(1),
-            Some(570113521),
-            Some("6F1DFD1D0FE8A32E40E1F2C05CF1C15545BAB56B617F9C6C2D63A6B704BEF59B".into()),
-        );
+        let txn = CheckCreate::builder("rUn84CUYbNjRoTQ6mSW7BVJPSVJNLb1QLo")
+            .fee("12")
+            .last_ledger_sequence(8_000_000)
+            .sequence(123)
+            .destination("rfkE1aSy9G8Upk4JssnwBxhEv5p4mn2KTy")
+            .send_max("100000000")
+            .destination_tag(1)
+            .expiration(570113521)
+            .invoice_id("6F1DFD1D0FE8A32E40E1F2C05CF1C15545BAB56B617F9C6C2D63A6B704BEF59B")
+            .build();
         assert_eq!(txn.get_transaction_type(), &TransactionType::CheckCreate);
         assert_eq!(txn.get_common_fields().sequence, Some(123));
         assert_eq!(txn.destination_tag, Some(1));

@@ -12,22 +12,10 @@ async fn test_nftoken_mint_base() {
         // Fresh wallet: NFTokenMint modifies the account's NFToken page objects.
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = NFTokenMint::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,    // transfer_fee
-            None, // issuer
-            None, // nftoken_taxon (defaults to 0)
-            Some(hex::encode(TEST_NFT_URL).into()),
-        );
+        let mut tx = NFTokenMint::builder(wallet.classic_address.clone())
+            .nftoken_taxon(0)
+            .uri(hex::encode(TEST_NFT_URL))
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

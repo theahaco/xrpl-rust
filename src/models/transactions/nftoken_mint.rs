@@ -213,40 +213,38 @@ impl<'a> NFTokenMintError for NFTokenMint<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTokenMint<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<NFTokenMintFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<NFTokenMintFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
         nftoken_taxon: u32,
-        issuer: Option<Cow<'a, str>>,
+        #[builder(into)] issuer: Option<Cow<'a, str>>,
         transfer_fee: Option<u32>,
-        uri: Option<Cow<'a, str>>,
+        #[builder(into)] uri: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::NFTokenMint,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::NFTokenMint)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             nftoken_taxon,
             issuer,
             transfer_fee,
@@ -407,7 +405,7 @@ mod tests {
         .with_transfer_fee(314)
         .with_uri("697066733A2F2F62616679626569676479727A74357366703775646D37687537367568377932366E6634646675796C71616266336F636C67747179353566627A6469".into())
         .with_flags(vec![NFTokenMintFlag::TfTransferable, NFTokenMintFlag::TfBurnable])
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -479,7 +477,7 @@ mod tests {
         ])
         .with_transfer_fee(500) // 0.5%
         .with_uri("ipfs://collection-metadata-hash".into())
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(456);
 
         assert_eq!(collection_mint.nftoken_taxon, 99999);
@@ -503,7 +501,7 @@ mod tests {
         }
         .with_ticket_sequence(789)
         .with_flag(NFTokenMintFlag::TfBurnable)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_mint.common_fields.ticket_sequence, Some(789));
         assert_eq!(ticket_mint.nftoken_taxon, 888);

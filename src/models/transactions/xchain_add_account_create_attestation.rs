@@ -49,46 +49,44 @@ impl<'a> Transaction<'a, NoFlags> for XChainAddAccountCreateAttestation<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainAddAccountCreateAttestation<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        attestation_reward_account: Cow<'a, str>,
-        attestation_signer_account: Cow<'a, str>,
-        destination: Cow<'a, str>,
-        other_chain_source: Cow<'a, str>,
-        public_key: Cow<'a, str>,
-        signature: Cow<'a, str>,
-        signature_reward: Amount<'a>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] attestation_reward_account: Cow<'a, str>,
+        #[builder(into)] attestation_signer_account: Cow<'a, str>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] other_chain_source: Cow<'a, str>,
+        #[builder(into)] public_key: Cow<'a, str>,
+        #[builder(into)] signature: Cow<'a, str>,
+        #[builder(into)] signature_reward: Amount<'a>,
         was_locking_chain_send: u8,
-        xchain_account_create_count: Cow<'a, str>,
-        xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] xchain_account_create_count: Cow<'a, str>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
     ) -> XChainAddAccountCreateAttestation<'a> {
         XChainAddAccountCreateAttestation {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainAddAccountCreateAttestation,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainAddAccountCreateAttestation)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             attestation_reward_account,
             attestation_signer_account,
@@ -209,130 +207,83 @@ mod test_xchain_claim {
 
     #[test]
     fn test_successful_claim_xrp() {
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            XRPAmount::from(XRP_AMOUNT).into(),
-            Cow::Borrowed(DESTINATION),
-            xrp_bridge(),
-            CLAIM_ID.to_string().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .amount(XRPAmount::from(XRP_AMOUNT))
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id(CLAIM_ID.to_string())
+            .build();
         assert!(claim.validate().is_ok());
     }
 
     #[test]
     fn test_successful_claim_iou() {
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            iou_amount(),
-            Cow::Borrowed(DESTINATION),
-            iou_bridge(),
-            CLAIM_ID.to_string().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .amount(iou_amount())
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(iou_bridge())
+            .xchain_claim_id(CLAIM_ID.to_string())
+            .build();
         assert!(claim.validate().is_ok());
     }
 
     #[test]
     fn test_successful_claim_destination_tag() {
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            Some(12345),
-            None,
-            XRPAmount::from(XRP_AMOUNT).into(),
-            Cow::Borrowed(DESTINATION),
-            xrp_bridge(),
-            CLAIM_ID.to_string().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .source_tag(12345)
+            .amount(XRPAmount::from(XRP_AMOUNT))
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id(CLAIM_ID.to_string())
+            .build();
         assert!(claim.validate().is_ok());
     }
 
     #[test]
     fn test_successful_claim_str_claim_id() {
         let claim_id_str = CLAIM_ID.to_string();
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            XRPAmount::from(XRP_AMOUNT).into(),
-            Cow::Borrowed(DESTINATION),
-            xrp_bridge(),
-            claim_id_str.as_str().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .amount(XRPAmount::from(XRP_AMOUNT))
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id(claim_id_str.as_str())
+            .build();
         assert!(claim.validate().is_ok());
     }
 
     #[test]
     #[should_panic]
     fn test_xrp_bridge_iou_amount() {
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            iou_amount(),
-            Cow::Borrowed(DESTINATION),
-            xrp_bridge(),
-            CLAIM_ID.to_string().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .amount(iou_amount())
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id(CLAIM_ID.to_string())
+            .build();
         claim.validate().unwrap();
     }
 
     #[test]
     #[should_panic]
     fn test_iou_bridge_xrp_amount() {
-        let claim = XChainClaim::new(
-            Cow::Borrowed(ACCOUNT),
-            None,
-            Some(XRPAmount::from(FEE)),
-            None,
-            None,
-            Some(SEQUENCE),
-            None,
-            None,
-            None,
-            XRPAmount::from(XRP_AMOUNT).into(),
-            Cow::Borrowed(DESTINATION),
-            iou_bridge(),
-            CLAIM_ID.to_string().into(),
-            None,
-        );
+        let claim = XChainClaim::builder(Cow::Borrowed(ACCOUNT))
+            .fee(XRPAmount::from(FEE))
+            .sequence(SEQUENCE)
+            .amount(XRPAmount::from(XRP_AMOUNT))
+            .destination(Cow::Borrowed(DESTINATION))
+            .xchain_bridge(iou_bridge())
+            .xchain_claim_id(CLAIM_ID.to_string())
+            .build();
         claim.validate().unwrap();
     }
 }

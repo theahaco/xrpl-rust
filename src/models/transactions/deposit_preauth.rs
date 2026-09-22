@@ -83,39 +83,37 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for DepositPreauth<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> DepositPreauth<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        authorize: Option<Cow<'a, str>>,
-        authorize_credentials: Option<Vec<CredentialAuthorization<'a>>>,
-        unauthorize: Option<Cow<'a, str>>,
-        unauthorize_credentials: Option<Vec<CredentialAuthorization<'a>>>,
+        #[builder(into)] authorize: Option<Cow<'a, str>>,
+        #[builder(into)] authorize_credentials: Option<Vec<CredentialAuthorization<'a>>>,
+        #[builder(into)] unauthorize: Option<Cow<'a, str>>,
+        #[builder(into)] unauthorize_credentials: Option<Vec<CredentialAuthorization<'a>>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::DepositPreauth,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::DepositPreauth)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             authorize,
             authorize_credentials,
             unauthorize,
@@ -404,7 +402,7 @@ mod tests {
             ..Default::default()
         }
         .with_authorize("rEhxGqkqPPSxQ3P25J66ft5TwpzV14k2de".into())
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -435,7 +433,7 @@ mod tests {
             ..Default::default()
         }
         .with_unauthorize("rN7n7otQDd6FczFgLdSqtcsAUxDkw6fzRH".into())
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(123);
 
         assert!(deposit_preauth.authorize.is_none());

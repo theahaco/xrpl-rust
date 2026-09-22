@@ -59,15 +59,17 @@ pub struct AccountChannels<'a> {
 
 impl<'a> Model for AccountChannels<'a> {}
 
+#[bon::bon]
 impl<'a> AccountChannels<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        destination_account: Option<Cow<'a, str>>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] destination_account: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -102,15 +104,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountChannels::new(
-            Some("ac-1".into()),
-            "rH6ZiHU1PGamME2LvVTxrgvfjQpppWKGmr".into(),
-            Some("rDest11111111111111111111111111111".into()),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(50),
-            Some(Marker::Int(12345)),
-        );
+        let req = AccountChannels::builder("rH6ZiHU1PGamME2LvVTxrgvfjQpppWKGmr")
+            .id("ac-1")
+            .destination_account("rDest11111111111111111111111111111")
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .limit(50)
+            .marker(Marker::Int(12345))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountChannels = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

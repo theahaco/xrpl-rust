@@ -86,40 +86,38 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for AMMBid<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMBid<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        asset: Currency<'a>,
-        asset2: Currency<'a>,
-        bid_min: Option<IssuedCurrencyAmount<'a>>,
-        bid_max: Option<IssuedCurrencyAmount<'a>>,
-        auth_accounts: Option<Vec<AuthAccount>>,
+        #[builder(into)] asset: Currency<'a>,
+        #[builder(into)] asset2: Currency<'a>,
+        #[builder(into)] bid_min: Option<IssuedCurrencyAmount<'a>>,
+        #[builder(into)] bid_max: Option<IssuedCurrencyAmount<'a>>,
+        #[builder(into)] auth_accounts: Option<Vec<AuthAccount>>,
     ) -> AMMBid<'a> {
         AMMBid {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AMMBid,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AMMBid)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             asset,
             asset2,
             bid_min,
@@ -242,7 +240,7 @@ mod tests {
         .add_auth_account(AuthAccount {
             account: "rBepJuTLFJt3WmtLXYAxSjtBWAeQxVbncv".into(),
         })
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -305,7 +303,7 @@ mod tests {
             )),
             ..Default::default()
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100);
 
         assert_eq!(minimal_bid.common_fields.fee.as_ref().unwrap().0, "12");
@@ -343,7 +341,7 @@ mod tests {
             "rLPTokenIssuer".into(),
             "200".into(),
         ))
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(200);
 
         assert_eq!(range_bid.bid_min.as_ref().unwrap().value, "50");
@@ -375,7 +373,7 @@ mod tests {
         .add_auth_account(AuthAccount {
             account: "rAuthorized3".into(),
         })
-        .with_fee("20".into())
+        .with_fee("20")
         .with_sequence(300)
         .with_memo(Memo {
             memo_data: Some("bid with authorized accounts".into()),
@@ -416,7 +414,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(54321)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_bid.common_fields.ticket_sequence, Some(54321));
         // When using tickets, sequence should be None or 0
@@ -448,7 +446,7 @@ mod tests {
             memo_format: None,
             memo_type: Some("text".into()),
         })
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(400);
 
         assert_eq!(

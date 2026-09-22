@@ -50,45 +50,26 @@ pub async fn setup_bridge() -> XChainBridgeSetup {
     let signature_reward = "200".to_string();
 
     // Step 1: XChainCreateBridge — door_wallet is locking_chain_door
-    // No flags; standard 9 common-field order.
-    let mut bridge_tx = XChainCreateBridge::new(
-        door_wallet.classic_address.clone().into(),
-        None,                                      // account_txn_id
-        None,                                      // fee
-        None,                                      // last_ledger_sequence
-        None,                                      // memos
-        None,                                      // sequence
-        None,                                      // signers
-        None,                                      // source_tag
-        None,                                      // ticket_sequence
-        Amount::XRPAmount(XRPAmount::from("200")), // signature_reward
-        XChainBridge {
+    let mut bridge_tx = XChainCreateBridge::builder(door_wallet.classic_address.clone())
+        .signature_reward(Amount::XRPAmount(XRPAmount::from("200")))
+        .xchain_bridge(XChainBridge {
             issuing_chain_door: GENESIS_ACCOUNT.into(),
             issuing_chain_issue: Currency::XRP(XRP::new()),
             locking_chain_door: door_wallet.classic_address.clone().into(),
             locking_chain_issue: Currency::XRP(XRP::new()),
-        },
-        Some(XRPAmount::from("10000000")), // min_account_create_amount (10 XRP)
-    );
+        })
+        .min_account_create_amount(XRPAmount::from("10000000"))
+        .build();
     test_transaction(&mut bridge_tx, &door_wallet).await;
 
     // Step 2: SignerListSet — register witness_wallet as the sole signer (quorum = 1)
-    let mut signer_tx = SignerListSet::new(
-        door_wallet.classic_address.clone().into(),
-        None, // account_txn_id
-        None, // fee
-        None, // last_ledger_sequence
-        None, // memos
-        None, // sequence
-        None, // signers
-        None, // source_tag
-        None, // ticket_sequence
-        1,    // signer_quorum
-        Some(vec![SignerEntry::new(
+    let mut signer_tx = SignerListSet::builder(door_wallet.classic_address.clone())
+        .signer_quorum(1)
+        .signer_entries(vec![SignerEntry::new(
             witness_wallet.classic_address.clone(),
-            1, // signer_weight
-        )]),
-    );
+            1,
+        )])
+        .build();
     test_transaction(&mut signer_tx, &door_wallet).await;
 
     XChainBridgeSetup {

@@ -64,17 +64,10 @@ where
     if is_valid_xaddress(&classic_address) {
         classic_address = xaddress_to_classic_address(&classic_address)?.0.into();
     }
-    let request = AccountInfo::new(
-        None,
-        classic_address,
-        None,
-        Some(ledger_index.into()),
-        None,
-        None,
-        None,
-    )
-    .into();
-    let response = client.request(request).await?;
+    let request = AccountInfo::builder(classic_address)
+        .ledger_index(ledger_index)
+        .build();
+    let response = client.request(request.into()).await?;
     let account_info = results::account_info::AccountInfoVersionMap::try_from(response)?;
     let account_root = account_info.get_account_root().to_owned();
 
@@ -91,18 +84,10 @@ where
     if is_valid_xaddress(&address) {
         address = xaddress_to_classic_address(&address)?.0.into();
     }
-    let account_tx = AccountTx::new(
-        None,
-        address,
-        None,
-        Some("validated".into()),
-        None,
-        None,
-        None,
-        None,
-        Some(1),
-        None,
-    );
+    let account_tx = AccountTx::builder(address)
+        .ledger_index("validated")
+        .limit(1u16)
+        .build();
     let response: results::account_tx::AccountTxVersionMap =
         client.request(account_tx.into()).await?.try_into()?;
 

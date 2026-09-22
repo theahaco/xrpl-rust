@@ -31,77 +31,31 @@ pub async fn setup_amm_pool() -> AmmPool {
     let lp_wallet = generate_funded_wallet().await;
 
     // Step 1: enable DefaultRipple on issuer so the USD IOU can flow through AMM
-    // AccountSet has flags at position 4; set_flag is at position 15.
-    let mut set_tx = AccountSet::new(
-        issuer_wallet.classic_address.clone().into(),
-        None,                                   // account_txn_id
-        None,                                   // fee
-        None,                                   // flags (position 4)
-        None,                                   // last_ledger_sequence
-        None,                                   // memos
-        None,                                   // sequence
-        None,                                   // signers
-        None,                                   // source_tag
-        None,                                   // ticket_sequence
-        None,                                   // clear_flag
-        None,                                   // domain
-        None,                                   // email_hash
-        None,                                   // message_key
-        Some(AccountSetFlag::AsfDefaultRipple), // set_flag
-        None,                                   // transfer_rate
-        None,                                   // tick_size
-        None,                                   // nftoken_minter
-    );
+    let mut set_tx = AccountSet::builder(issuer_wallet.classic_address.clone())
+        .set_flag(AccountSetFlag::AsfDefaultRipple)
+        .build();
     test_transaction(&mut set_tx, &issuer_wallet).await;
 
     // Step 2: lp_wallet sets trust line to issuer for 1000 USD
-    // TrustSet has flags at position 4.
-    let mut trust_tx = TrustSet::new(
-        lp_wallet.classic_address.clone().into(),
-        None,                                             // account_txn_id
-        None,                                             // fee
-        Some(vec![TrustSetFlag::TfClearNoRipple].into()), // flags (position 4)
-        None,                                             // last_ledger_sequence
-        None,                                             // memos
-        None,                                             // sequence
-        None,                                             // signers
-        None,                                             // source_tag
-        None,                                             // ticket_sequence
-        IssuedCurrencyAmount::new(
+    let mut trust_tx = TrustSet::builder(lp_wallet.classic_address.clone())
+        .flags(vec![TrustSetFlag::TfClearNoRipple])
+        .limit_amount(IssuedCurrencyAmount::new(
             "USD".into(),
             issuer_wallet.classic_address.clone().into(),
             "1000".into(),
-        ),
-        None, // quality_in
-        None, // quality_out
-    );
+        ))
+        .build();
     test_transaction(&mut trust_tx, &lp_wallet).await;
 
     // Step 3: issuer sends 500 USD to lp_wallet
-    // Payment has flags at position 4.
-    let mut pay_tx = Payment::new(
-        issuer_wallet.classic_address.clone().into(),
-        None, // account_txn_id
-        None, // fee
-        None, // flags (position 4)
-        None, // last_ledger_sequence
-        None, // memos
-        None, // sequence
-        None, // signers
-        None, // source_tag
-        None, // ticket_sequence
-        Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
+    let mut pay_tx = Payment::builder(issuer_wallet.classic_address.clone())
+        .amount(Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
             "USD".into(),
             issuer_wallet.classic_address.clone().into(),
             "500".into(),
-        )),
-        lp_wallet.classic_address.clone().into(), // destination
-        None,                                     // destination_tag
-        None,                                     // invoice_id
-        None,                                     // paths
-        None,                                     // send_max
-        None,                                     // deliver_min
-    );
+        )))
+        .destination(lp_wallet.classic_address.clone())
+        .build();
     test_transaction(&mut pay_tx, &issuer_wallet).await;
 
     // Step 4: lp_wallet creates the AMM with 250 XRP drops + 250 USD, fee = 12
@@ -109,50 +63,29 @@ pub async fn setup_amm_pool() -> AmmPool {
     // AMMCreate requires a fee equal to the owner reserve (inc_reserve = 5 XRP = 5_000_000 drops
     // in the standalone Docker image). The SDK's autofill handles this via
     // calculate_fee_per_transaction_type which returns get_owner_reserve for AMMCreate.
-    let mut amm_tx = AMMCreate::new(
-        lp_wallet.classic_address.clone().into(),
-        None,                                      // account_txn_id
-        None, // fee: autofill computes inc_reserve (5 XRP) for AMMCreate
-        None, // last_ledger_sequence
-        None, // memos
-        None, // sequence
-        None, // signers
-        None, // source_tag
-        None, // ticket_sequence
-        Amount::XRPAmount(XRPAmount::from("250")), // amount: 250 XRP drops
-        Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
+    let mut amm_tx = AMMCreate::builder(lp_wallet.classic_address.clone())
+        .amount(Amount::XRPAmount(XRPAmount::from("250")))
+        .amount2(Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
             "USD".into(),
             issuer_wallet.classic_address.clone().into(),
             "250".into(),
-        )), // amount2: 250 USD
-        12,   // trading_fee (12 / 100_000)
-    );
+        )))
+        .trading_fee(12)
+        .build();
     test_transaction(&mut amm_tx, &lp_wallet).await;
 
     // Step 5: lp_wallet deposits 1000 XRP drops (TfSingleAsset) so pool has
     // enough XRP for a 500-drop single-asset withdraw in amm_withdraw tests.
     // Adds liquidity so pool has enough XRP for single-asset withdraw tests.
-    let mut deposit_tx = AMMDeposit::new(
-        lp_wallet.classic_address.clone().into(),
-        None,                                             // account_txn_id
-        None,                                             // fee
-        Some(vec![AMMDepositFlag::TfSingleAsset].into()), // flags
-        None,                                             // last_ledger_sequence
-        None,                                             // memos
-        None,                                             // sequence
-        None,                                             // signers
-        None,                                             // source_tag
-        None,                                             // ticket_sequence
-        Currency::XRP(XRP::new()),
-        Currency::IssuedCurrency(xrpl::models::IssuedCurrency::new(
+    let mut deposit_tx = AMMDeposit::builder(lp_wallet.classic_address.clone())
+        .flags(vec![AMMDepositFlag::TfSingleAsset])
+        .asset(Currency::XRP(XRP::new()))
+        .asset2(Currency::IssuedCurrency(xrpl::models::IssuedCurrency::new(
             "USD".into(),
             issuer_wallet.classic_address.clone().into(),
-        )),
-        Some(Amount::XRPAmount(XRPAmount::from("1000"))), // amount: 1000 XRP drops
-        None,                                             // amount2
-        None,                                             // e_price
-        None,                                             // lp_token_out
-    );
+        )))
+        .amount(Amount::XRPAmount(XRPAmount::from("1000")))
+        .build();
     test_transaction(&mut deposit_tx, &lp_wallet).await;
 
     AmmPool {

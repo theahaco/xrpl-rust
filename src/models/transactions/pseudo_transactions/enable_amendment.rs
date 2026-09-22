@@ -70,38 +70,36 @@ impl<'a> Transaction<'a, EnableAmendmentFlag> for EnableAmendment<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> EnableAmendment<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<EnableAmendmentFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<EnableAmendmentFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amendment: Cow<'a, str>,
+        #[builder(into)] amendment: Cow<'a, str>,
         ledger_sequence: u32,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::EnableAmendment,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::EnableAmendment)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amendment,
             ledger_sequence,
         }
@@ -115,22 +113,15 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let txn = EnableAmendment::new(
-            "rrrrrrrrrrrrrrrrrrrrrhoLvTp".into(),
-            None,
-            Some("10".into()),
-            Some(FlagCollection::new(vec![
+        let txn = EnableAmendment::builder("rrrrrrrrrrrrrrrrrrrrrhoLvTp")
+            .fee("10")
+            .flags(FlagCollection::new(vec![
                 EnableAmendmentFlag::TfGotMajority,
-            ])),
-            None,
-            None,
-            Some(1),
-            None,
-            None,
-            None,
-            "C1B8D934087225F509BEB5A8EC24447854713EE447D277F69545ABFA0E0FD490".into(),
-            56865245,
-        );
+            ]))
+            .sequence(1)
+            .amendment("C1B8D934087225F509BEB5A8EC24447854713EE447D277F69545ABFA0E0FD490")
+            .ledger_sequence(56865245)
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         let deserialized: EnableAmendment = serde_json::from_str(&serialized).unwrap();
         assert_eq!(txn, deserialized);
@@ -141,22 +132,13 @@ mod tests {
 
     #[test]
     fn test_has_flag() {
-        let txn = EnableAmendment::new(
-            "rrrrrrrrrrrrrrrrrrrrrhoLvTp".into(),
-            None,
-            None,
-            Some(FlagCollection::new(vec![
+        let txn = EnableAmendment::builder("rrrrrrrrrrrrrrrrrrrrrhoLvTp")
+            .flags(FlagCollection::new(vec![
                 EnableAmendmentFlag::TfLostMajority,
-            ])),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "ABCD".into(),
-            1,
-        );
+            ]))
+            .amendment("ABCD")
+            .ledger_sequence(1)
+            .build();
         assert!(txn.has_flag(&EnableAmendmentFlag::TfLostMajority));
         assert!(!txn.has_flag(&EnableAmendmentFlag::TfGotMajority));
         assert_eq!(

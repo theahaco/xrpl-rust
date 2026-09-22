@@ -11,16 +11,7 @@ async fn main() {
             .await
             .unwrap();
     // subscribe to the ledger stream
-    let subscribe = Subscribe::new(
-        None,
-        None,
-        None,
-        None,
-        Some(vec![StreamParameter::Ledger]),
-        None,
-        None,
-        None,
-    );
+    let subscribe = Subscribe::builder().streams(vec![StreamParameter::Ledger]).build();
     websocket.xrpl_send(subscribe.into()).await.unwrap();
     // listen for messages
     loop {

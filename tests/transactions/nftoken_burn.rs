@@ -22,22 +22,10 @@ async fn test_nftoken_burn_base() {
         let wallet = generate_funded_wallet().await;
 
         // Step 1: mint an NFT to get a token ID.
-        let mut mint = NFTokenMint::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,
-            None,
-            None,
-            Some(hex::encode(TEST_NFT_URL).into()),
-        );
+        let mut mint = NFTokenMint::builder(wallet.classic_address.clone())
+            .nftoken_taxon(0)
+            .uri(hex::encode(TEST_NFT_URL))
+            .build();
 
         sign_and_submit(&mut mint, client, &wallet, true, true)
             .await
@@ -48,7 +36,9 @@ async fn test_nftoken_burn_base() {
         // Get the NFT ID from account_nfts
         let nfts_response = client
             .request(
-                AccountNfts::new(None, wallet.classic_address.clone().into(), None, None).into(),
+                AccountNfts::builder(wallet.classic_address.clone())
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_nfts");
@@ -60,19 +50,9 @@ async fn test_nftoken_burn_base() {
         let nftoken_id = nfts_result.nfts[0].nft_id.to_string();
 
         // Step 2: burn the minted NFT.
-        let mut burn = NFTokenBurn::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            nftoken_id.into(),
-            None, // owner: None because the burner is the issuer/owner
-        );
+        let mut burn = NFTokenBurn::builder(wallet.classic_address.clone())
+            .nftoken_id(nftoken_id)
+            .build();
 
         test_transaction(&mut burn, &wallet).await;
     })

@@ -41,17 +41,7 @@ async fn test_get_aggregate_price_base() {
         test_transaction(&mut oracle_set, &wallet).await;
 
         let client = crate::common::get_client().await;
-        let request = GetAggregatePrice::new(
-            None,
-            "XRP".into(),
-            "USD".into(),
-            vec![OracleDescriptor {
-                account: wallet.classic_address.clone().into(),
-                oracle_document_id: 1,
-            }],
-            None,
-            None,
-        );
+        let request = GetAggregatePrice::builder("XRP").quote_asset("USD").oracles(vec![OracleDescriptor { account: wallet.classic_address.clone().into(), oracle_document_id: 1, }]).build();
 
         let response = client
             .request(request.into())
@@ -119,14 +109,7 @@ async fn test_get_aggregate_price_with_trim() {
             });
         }
 
-        let request = GetAggregatePrice::new(
-            None,
-            "XRP".into(),
-            "USD".into(),
-            oracles,
-            Some(20), // trim 20% of outliers
-            None,
-        );
+        let request = GetAggregatePrice::builder("XRP").quote_asset("USD").oracles(oracles).trim(20).build();
 
         let response = client
             .request(request.into())

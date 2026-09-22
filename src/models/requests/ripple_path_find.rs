@@ -70,16 +70,18 @@ impl<'a> Request<'a> for RipplePathFind<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> RipplePathFind<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        destination_account: Cow<'a, str>,
-        destination_amount: Amount<'a>,
-        source_account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
-        send_max: Option<Currency<'a>>,
-        source_currencies: Option<Vec<Currency<'a>>>,
+        #[builder(start_fn, into)] destination_account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] destination_amount: Amount<'a>,
+        #[builder(into)] source_account: Cow<'a, str>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(into)] send_max: Option<Currency<'a>>,
+        #[builder(into)] source_currencies: Option<Vec<Currency<'a>>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -108,16 +110,14 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = RipplePathFind::new(
-            Some("rpf-1".into()),
-            "rDest11111111111111111111111111111".into(),
-            Amount::XRPAmount(XRPAmount::from("1000000")),
-            "rSrc111111111111111111111111111111".into(),
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(Currency::XRP(XRP::new())),
-            Some(vec![Currency::XRP(XRP::new())]),
-        );
+        let req = RipplePathFind::builder("rDest11111111111111111111111111111")
+            .id("rpf-1")
+            .destination_amount(Amount::XRPAmount(XRPAmount::from("1000000")))
+            .source_account("rSrc111111111111111111111111111111")
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .send_max(Currency::XRP(XRP::new()))
+            .source_currencies(vec![Currency::XRP(XRP::new())])
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: RipplePathFind = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

@@ -39,7 +39,7 @@ use super::{CommonFields, Request, RequestMethod};
 /// use url::Url;
 ///
 /// let client = AsyncJsonRpcClient::connect(Url::parse("http://127.0.0.1:5005")?);
-/// let request = GenericRequest::new("ledger_accept", None, Map::new());
+/// let request = GenericRequest::builder("ledger_accept").params(Map::new()).build();
 /// let response = client.request(request.into()).await?;
 /// # let _ = response;
 /// # Ok(())
@@ -64,13 +64,15 @@ pub struct GenericRequest<'a> {
     pub params: Map<String, Value>,
 }
 
+#[bon::bon]
 impl<'a> GenericRequest<'a> {
     /// Build a `GenericRequest` for the given rippled `command`, with an
     /// optional client-supplied `id` and any extra `params`.
+    #[builder]
     pub fn new(
-        command: impl Into<Cow<'a, str>>,
-        id: Option<Cow<'a, str>>,
-        params: Map<String, Value>,
+        #[builder(start_fn, into)] command: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] params: Map<String, Value>,
     ) -> Self {
         // Reserved keys `command` and `id` would collide with the fields the
         // serializer emits before `params`, letting a caller-supplied
@@ -86,7 +88,7 @@ impl<'a> GenericRequest<'a> {
                 command: RequestMethod::Generic,
                 id,
             },
-            command: command.into(),
+            command,
             params,
         }
     }
@@ -188,11 +190,10 @@ impl<'de, 'a> Deserialize<'de> for GenericRequest<'a> {
                 }
 
                 let command = command.ok_or_else(|| de::Error::missing_field("command"))?;
-                Ok(GenericRequest::new(
-                    Cow::Owned(command),
-                    id.map(Cow::Owned),
-                    params,
-                ))
+                Ok(GenericRequest::builder(Cow::Owned(command))
+                    .maybe_id(id.map(Cow::Owned))
+                    .params(params)
+                    .build())
             }
         }
 
@@ -210,14 +211,19 @@ mod tests {
 
     #[test]
     fn test_serialize_no_params_no_id() {
-        let req = GenericRequest::new("ledger_accept", None, Map::new());
+        let req = GenericRequest::builder("ledger_accept")
+            .params(Map::new())
+            .build();
         let value: Value = serde_json::to_value(&req).unwrap();
         assert_eq!(value, json!({"command": "ledger_accept"}));
     }
 
     #[test]
     fn test_serialize_with_id() {
-        let req = GenericRequest::new("ledger_accept", Some("req-1".into()), Map::new());
+        let req = GenericRequest::builder("ledger_accept")
+            .id("req-1")
+            .params(Map::new())
+            .build();
         let value: Value = serde_json::to_value(&req).unwrap();
         assert_eq!(value, json!({"command": "ledger_accept", "id": "req-1"}));
     }
@@ -227,7 +233,7 @@ mod tests {
         let mut params = Map::new();
         params.insert("ledger_hash".into(), json!("ABC123"));
         params.insert("binary".into(), json!(true));
-        let req = GenericRequest::new("ledger", None, params);
+        let req = GenericRequest::builder("ledger").params(params).build();
         let value: Value = serde_json::to_value(&req).unwrap();
         assert_eq!(
             value,
@@ -242,11 +248,10 @@ mod tests {
             "account".into(),
             json!("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"),
         );
-        let req = GenericRequest::new(
-            Cow::Borrowed("account_info"),
-            Some(Cow::Borrowed("id-42")),
-            params.clone(),
-        );
+        let req = GenericRequest::builder(Cow::Borrowed("account_info"))
+            .id(Cow::Borrowed("id-42"))
+            .params(params.clone())
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: GenericRequest<'static> = serde_json::from_str(&serialized).unwrap();
         // The deserialized value is owned; compare by re-serializing.
@@ -314,7 +319,9 @@ mod tests {
     fn test_new_debug_asserts_on_reserved_command_key() {
         let mut params = Map::new();
         params.insert("command".into(), json!("stop"));
-        let _ = GenericRequest::new("ledger_accept", None, params);
+        let _ = GenericRequest::builder("ledger_accept")
+            .params(params)
+            .build();
     }
 
     #[cfg(debug_assertions)]
@@ -323,12 +330,16 @@ mod tests {
     fn test_new_debug_asserts_on_reserved_id_key() {
         let mut params = Map::new();
         params.insert("id".into(), json!("x"));
-        let _ = GenericRequest::new("ledger_accept", None, params);
+        let _ = GenericRequest::builder("ledger_accept")
+            .params(params)
+            .build();
     }
 
     #[test]
     fn test_common_fields_id_is_mutable_for_client_autofill() {
-        let mut req = GenericRequest::new("ledger_accept", None, Map::new());
+        let mut req = GenericRequest::builder("ledger_accept")
+            .params(Map::new())
+            .build();
         assert!(req.get_common_fields().id.is_none());
         req.get_common_fields_mut().id = Some(Cow::Borrowed("auto-42"));
         let value: Value = serde_json::to_value(&req).unwrap();

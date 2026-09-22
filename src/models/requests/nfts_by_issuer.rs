@@ -37,14 +37,16 @@ impl<'a> Request<'a> for NFTsByIssuer<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTsByIssuer<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        issuer: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] issuer: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u32>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
         nft_taxon: Option<u64>,
     ) -> Self {
         Self {
@@ -70,15 +72,12 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = NFTsByIssuer::new(
-            Some("nbi-1".into()),
-            "rIssuer11111111111111111111111111".into(),
-            None,
-            None,
-            Some(100),
-            Some(Marker::Int(1)),
-            Some(42),
-        );
+        let req = NFTsByIssuer::builder("rIssuer11111111111111111111111111")
+            .id("nbi-1")
+            .limit(100)
+            .marker(Marker::Int(1))
+            .nft_taxon(42)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: NFTsByIssuer = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

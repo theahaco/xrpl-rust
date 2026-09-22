@@ -117,7 +117,7 @@ mod tests {
             ..Default::default()
         }
         .with_mptoken_issuance_id("00000001A407AF5856CEFBF81F3D4A0000000000A407AF58".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100);
 
         assert_eq!(

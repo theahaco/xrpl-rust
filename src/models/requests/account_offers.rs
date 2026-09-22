@@ -48,15 +48,17 @@ impl<'a> Request<'a> for AccountOffers<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountOffers<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
         strict: Option<bool>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -81,15 +83,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountOffers::new(
-            Some("aoff-1".into()),
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            Some(LedgerIndex::Int(456)),
-            Some(50),
-            Some(true),
-            Some(Marker::Str("abc".into())),
-        );
+        let req = AccountOffers::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .id("aoff-1")
+            .ledger_index(LedgerIndex::Int(456))
+            .limit(50)
+            .strict(true)
+            .marker(Marker::Str("abc".into()))
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountOffers = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

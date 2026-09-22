@@ -95,7 +95,7 @@ use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::account_info::AccountInfo;
 
 let client = XRPLSyncClient::new("https://xrplcluster.com/")?;
-let req = AccountInfo::new("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(), None, None, None);
+let req = AccountInfo::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh").build();
 let response = client.request(req.into())?;
 ```
 
@@ -460,6 +460,29 @@ let wallet = Wallet::from_seed(seed, None, false)?;
 println!("Classic Address: {}", wallet.classic_address);
 ```
 
+### Constructing Models (Builders)
+
+Every request and transaction model is constructed through a [`bon`](https://bon-rs.com) builder instead of a positional constructor:
+
+- `Type::builder(<subject>)` starts the builder. The subject is the field the model is *about* — the sending `account` for transactions and account-scoped requests, `taker_gets` for `BookOffers`, the `command` for `GenericRequest`.
+- Optional fields are named setters that take the value directly — `.limit(10)`, `.ledger_index(LedgerIndex::Validated)`. Leave a setter off to leave the field unset; there are no `None` placeholders.
+- String-ish and amount-ish setters accept anything convertible, so `&str` works where `Cow<'a, str>` or `XRPAmount` is expected: `.fee("12")`, `.destination("rReceiver456")`.
+- When you already hold an `Option<T>`, use the `maybe_` form of the setter: `.maybe_ledger_hash(hash_opt)`.
+- `.build()` finishes and returns the model.
+
+```rust
+use xrpl::models::requests::account_tx::AccountTx;
+
+let req = AccountTx::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+    .ledger_index_min(1)
+    .ledger_index_max(99999)
+    .forward(true)
+    .limit(25)
+    .build();
+```
+
+Setters are order-independent, and adding a new optional field to a model no longer breaks existing call sites.
+
 ### Making API Requests
 
 ```rust
@@ -475,26 +498,22 @@ use xrpl::models::{LedgerIndex, Currency};
 let client = XRPLSyncClient::new("https://xrplcluster.com/")?;
 
 // Get account information
-let account_info_req = AccountInfo::new(
-    "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-    None, None, None
-);
+let account_info_req = AccountInfo::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh").build();
 let response = client.request(account_info_req.into())?;
 
-// Get account trust lines
-let account_lines_req = AccountLines::new(
-    None,
-    "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-    None, None, Some(10), None
-);
+// Get account trust lines — only the fields you care about
+let account_lines_req = AccountLines::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+    .limit(10)
+    .build();
 let lines_response = client.request(account_lines_req.into())?;
 
 // Get order book offers
 let taker_gets = Currency::xrp();
 let taker_pays = Currency::issued("USD", "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B");
-let book_offers_req = BookOffers::new(
-    None, taker_gets, taker_pays, None, None, Some(5), None
-);
+let book_offers_req = BookOffers::builder(taker_gets)
+    .taker_pays(taker_pays)
+    .limit(5)
+    .build();
 let offers_response = client.request(book_offers_req.into())?;
 ```
 
@@ -517,7 +536,7 @@ let payment = Payment {
     destination: "rDestinationAddress456".into(),
     ..Default::default()
 }
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(100)
 .with_destination_tag(12345)
 .with_memo(Memo {
@@ -543,7 +562,7 @@ let cross_currency_payment = Payment {
 }
 .with_send_max(Amount::xrp_amount("110000000")) // Max 110 XRP
 .with_flag(PaymentFlag::TfPartialPayment)
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(101);
 
 // Set up an account with deposit authorization
@@ -557,7 +576,7 @@ let account_setup = AccountSet {
 }
 .with_set_flag(AccountSetFlag::AsfDepositAuth)
 .with_transfer_rate(1020000000) // 2% transfer fee
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(50);
 
 // Delete an account
@@ -571,7 +590,7 @@ let account_deletion = AccountDelete {
     ..Default::default()
 }
 .with_destination_tag(98765)
-.with_fee("2000000".into()) // 2 XRP minimum fee for account deletion
+.with_fee("2000000") // 2 XRP minimum fee for account deletion
 .with_sequence(200)
 .with_memo(Memo {
     memo_data: Some("closing account".into()),
@@ -609,7 +628,7 @@ let amm_create = AMMCreate {
     )),
     trading_fee: 100, // 0.1% trading fee
 }
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(100)
 .with_memo(Memo {
     memo_data: Some("creating XRP-USD AMM".into()),
@@ -641,7 +660,7 @@ let amm_bid = AMMBid {
     "rLPTokenIssuer".into(),
     "200".into(),
 ))
-.with_fee("15".into())
+.with_fee("15")
 .with_sequence(200);
 
 // Delete empty AMM
@@ -658,7 +677,7 @@ let amm_delete = AMMDelete {
     )),
     ..Default::default()
 }
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(300);
 ```
 
@@ -701,7 +720,7 @@ let nft_mint = NFTokenMint {
     nftoken_taxon: 0,
     ..Default::default()
 }
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(100)
 .with_memo(Memo {
     memo_data: Some("minting unique NFT".into()),
@@ -720,7 +739,7 @@ let nft_sell_offer = NFTokenCreateOffer {
     ..Default::default()
 }
 .with_amount(Amount::xrp_amount("1000000")) // 1 XRP
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(200);
 ```
 
@@ -800,7 +819,7 @@ let payment = Payment {
     destination: "rReceiver456".into(),
     ..Default::default()
 }
-.with_fee("12".into())
+.with_fee("12")
 .with_sequence(100);
 
 match payment.validate() {

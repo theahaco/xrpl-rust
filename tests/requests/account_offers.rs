@@ -13,15 +13,9 @@ async fn test_account_offers_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = AccountOffers::new(
-            None,                                  // id
-            wallet.classic_address.clone().into(), // account
-            None,                                  // ledger_hash
-            None,                                  // ledger_index
-            None,                                  // limit
-            Some(true),                            // strict
-            None,                                  // marker
-        );
+        let request = AccountOffers::builder(wallet.classic_address.clone())
+            .strict(true)
+            .build();
 
         let response = client
             .request(request.into())

@@ -2,7 +2,6 @@
 //   - base: witness submits a claim attestation for a transfer of 10 XRP.
 //           The attestation payload is binary-encoded and signed with the witness private key.
 //
-// NOTE: XChainAddClaimAttestation has NO flags; standard 9 common-field order.
 //
 // Attestation signing flow:
 //   1. Build a struct with the attestation fields (PascalCase serde names).
@@ -55,20 +54,11 @@ async fn test_xchain_add_claim_attestation_base() {
         let other_wallet = Wallet::new(&other_seed, 0).expect("wallet");
 
         // Step 1: XChainCreateClaimID — reserves claim ID 1
-        let mut claim_id_tx = XChainCreateClaimID::new(
-            holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            other_wallet.classic_address.clone().into(),
-            XRPAmount::from(bridge_setup.signature_reward.as_str()),
-            bridge_setup.bridge(),
-        );
+        let mut claim_id_tx = XChainCreateClaimID::builder(holder.classic_address.clone())
+            .other_chain_source(other_wallet.classic_address.clone())
+            .signature_reward(XRPAmount::from(bridge_setup.signature_reward.as_str()))
+            .xchain_bridge(bridge_setup.bridge())
+            .build();
         sign_and_submit(&mut claim_id_tx, client, &holder, true, true)
             .await
             .expect("XChainCreateClaimID failed");
@@ -96,27 +86,18 @@ async fn test_xchain_add_claim_attestation_base() {
             .expect("sign attestation failed");
 
         // Step 3: XChainAddClaimAttestation — witness submits the signed attestation
-        let mut tx = XChainAddClaimAttestation::new(
-            bridge_setup.witness_wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000000")), // amount
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_reward_account
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_signer_account
-            other_wallet.classic_address.clone().into(),                // other_chain_source
-            bridge_setup.witness_wallet.public_key.clone().into(),      // public_key
-            attestation_sig.into(),                                     // signature
-            0,                                                          // was_locking_chain_send
-            bridge_setup.bridge(),
-            "1".into(), // xchain_claim_id
-            None,       // destination (not included in base test)
-        );
+        let mut tx =
+            XChainAddClaimAttestation::builder(bridge_setup.witness_wallet.classic_address.clone())
+                .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+                .attestation_reward_account(bridge_setup.witness_wallet.classic_address.clone())
+                .attestation_signer_account(bridge_setup.witness_wallet.classic_address.clone())
+                .other_chain_source(other_wallet.classic_address.clone())
+                .public_key(bridge_setup.witness_wallet.public_key.clone())
+                .signature(attestation_sig)
+                .was_locking_chain_send(0)
+                .xchain_bridge(bridge_setup.bridge())
+                .xchain_claim_id("1")
+                .build();
 
         test_transaction(&mut tx, &bridge_setup.witness_wallet).await;
     })

@@ -110,7 +110,12 @@ where
         // sleep for 1 second
         wait_seconds(1).await;
         let response = client
-            .request(requests::tx::Tx::new(None, None, None, None, Some(tx_hash.clone())).into())
+            .request(
+                requests::tx::Tx::builder()
+                    .transaction(tx_hash.clone())
+                    .build()
+                    .into(),
+            )
             .await?;
         if response.is_success() {
             if let Some(error) = response.error.as_ref() {
@@ -267,7 +272,7 @@ mod tests {
         let tx = AccountSet {
             common_fields: CommonFields::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(100),
             domain: Some(test_constants::EXAMPLE_COM_HEX.into()),
             ..Default::default()
@@ -299,7 +304,7 @@ mod tests {
         let tx1 = AccountSet {
             common_fields: CommonFields::<AccountSetFlag>::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("10".into())
+                .with_fee("10")
                 .with_sequence(1),
             domain: Some(test_constants::EXAMPLE_COM_HEX.into()),
             ..Default::default()
@@ -550,7 +555,7 @@ mod tests {
         let mut tx = AccountSet {
             common_fields: CommonFields::from_account(&wallet.classic_address)
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("10".into())
+                .with_fee("10")
                 .with_sequence(1),
             ..Default::default()
         };

@@ -510,15 +510,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_info = AccountInfo::new(
-                    None,                   // id
-                    address.clone().into(), // account
-                    None,                   // strict
-                    None,                   // ledger_index
-                    None,                   // ledger_hash
-                    None,                   // queue
-                    None,                   // signer_lists
-                );
+                let account_info = AccountInfo::builder(address).build();
 
                 // Execute request and handle response
                 handle_response(client.request(account_info.into()), "Account info")
@@ -536,18 +528,9 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_tx = AccountTx::new(
-                    None,
-                    address.clone().into(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(*limit),
-                    None,
-                    None,
-                    None,
-                );
+                let account_tx = AccountTx::builder(address.clone())
+                    .ledger_index_min(*limit)
+                    .build();
 
                 // Execute request and handle response
                 handle_response(client.request(account_tx.into()), "Account transactions")
@@ -583,16 +566,10 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_objects = AccountObjects::new(
-                    None,
-                    address.clone().into(),
-                    None,
-                    None,
-                    object_type,
-                    None,
-                    Some(*limit),
-                    None,
-                );
+                let account_objects = AccountObjects::builder(address.clone())
+                    .maybe_type(object_type)
+                    .limit(*limit)
+                    .build();
 
                 // Execute request and handle response
                 handle_response(client.request(account_objects.into()), "Account objects")
@@ -611,15 +588,10 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_channels = AccountChannels::new(
-                    None,
-                    address.clone().into(),
-                    destination_account.as_deref().map(Into::into),
-                    None,
-                    None,
-                    Some(*limit),
-                    None,
-                );
+                let account_channels = AccountChannels::builder(address.clone())
+                    .maybe_destination_account(destination_account.as_deref())
+                    .limit(*limit)
+                    .build();
 
                 // Execute request and handle response
                 handle_response(client.request(account_channels.into()), "Account channels")
@@ -633,8 +605,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_currencies =
-                    AccountCurrencies::new(None, address.clone().into(), None, None, None);
+                let account_currencies = AccountCurrencies::builder(address.clone()).build();
 
                 // Execute request and handle response
                 handle_response(
@@ -656,14 +627,10 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let account_lines = AccountLines::new(
-                    None,
-                    address.clone().into(),
-                    None,
-                    None,
-                    Some(*limit),
-                    peer.as_deref().map(Into::into),
-                );
+                let account_lines = AccountLines::builder(address.clone())
+                    .limit(*limit)
+                    .maybe_peer(peer.as_deref())
+                    .build();
 
                 // Execute request and handle response
                 handle_response(client.request(account_lines.into()), "Account trust lines")
@@ -674,12 +641,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 use crate::models::requests::account_nfts::AccountNfts;
 
                 let client = create_json_rpc_client(url)?;
-                let req = AccountNfts::new(
-                    None,                   // id
-                    address.clone().into(), // account
-                    None,                   // limit
-                    None,                   // marker
-                );
+                let req = AccountNfts::builder(address.clone()).build();
 
                 handle_response(client.request(req.into()), "Account NFTs")
             }
@@ -696,26 +658,9 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let flag_enum = AccountSetFlag::from_str(flag)
                     .map_err(|_| CliError::Other(format!("Invalid flag: {}", flag)))?;
 
-                let mut tx = AccountSet::new(
-                    Cow::Owned(wallet.classic_address.clone()),
-                    None,            // account_txn_id
-                    None,            // fee
-                    None,            // flags
-                    None,            // last_ledger_sequence
-                    None,            // memos
-                    None,            // sequence
-                    None,            // signers
-                    None,            // source_tag
-                    None,            // ticket_sequence
-                    None,            // clear_flag
-                    None,            // domain
-                    None,            // email_hash
-                    None,            // message_key
-                    Some(flag_enum), // set_flag
-                    None,            // transfer_rate
-                    None,            // tick_size
-                    None,            // nftoken_minter
-                );
+                let mut tx = AccountSet::builder(Cow::Owned(wallet.classic_address.clone()))
+                    .set_flag(flag_enum)
+                    .build();
 
                 sign(&mut tx, &wallet, false)?;
                 let tx_blob = encode_and_print_tx(&tx)?;
@@ -741,26 +686,9 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let flag_enum = AccountSetFlag::from_str(flag)
                     .map_err(|_| CliError::Other(format!("Invalid flag: {}", flag)))?;
 
-                let mut tx = AccountSet::new(
-                    Cow::Owned(wallet.classic_address.clone()),
-                    None,            // account_txn_id
-                    None,            // fee
-                    None,            // flags
-                    None,            // last_ledger_sequence
-                    None,            // memos
-                    None,            // sequence
-                    None,            // signers
-                    None,            // source_tag
-                    None,            // ticket_sequence
-                    None,            // clear_flag
-                    None,            // domain
-                    None,            // email_hash
-                    None,            // message_key
-                    Some(flag_enum), // set_flag
-                    None,            // transfer_rate
-                    None,            // tick_size
-                    None,            // nftoken_minter
-                );
+                let mut tx = AccountSet::builder(Cow::Owned(wallet.classic_address.clone()))
+                    .set_flag(flag_enum)
+                    .build();
 
                 sign(&mut tx, &wallet, false)?;
                 let tx_blob = encode_and_print_tx(&tx)?;
@@ -839,7 +767,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let submit_request = Submit::new(None, tx_blob.into(), None);
+                let submit_request = Submit::builder(tx_blob).build();
 
                 // Execute request and handle response
                 handle_response(
@@ -872,21 +800,9 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 );
 
                 // Build TrustSet transaction
-                let mut tx = TrustSet::new(
-                    Cow::Owned(wallet.classic_address.clone()),
-                    None, // account_txn_id
-                    None, // fee
-                    None, // flags
-                    None, // last_ledger_sequence
-                    None, // memos
-                    None, // sequence
-                    None, // signers
-                    None, // source_tag
-                    None, // ticket_sequence
-                    amount,
-                    None, // quality_in
-                    None, // quality_out
-                );
+                let mut tx = TrustSet::builder(Cow::Owned(wallet.classic_address.clone()))
+                    .limit_amount(amount)
+                    .build();
 
                 // Sign the transaction
                 use crate::asynch::transaction::sign;
@@ -919,24 +835,14 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let wallet = Wallet::new(seed, 0)?;
 
                 // Support multiple flags via bitmask
-                let flag_collection = flags.map(|f| NFTokenMintFlag::from_bits(f).into());
+                let flag_collection = flags.map(NFTokenMintFlag::from_bits);
 
-                let mut tx = NFTokenMint::new(
-                    Cow::Owned(wallet.classic_address.clone()),
-                    None, // account_txn_id
-                    None, // fee
-                    flag_collection,
-                    None, // last_ledger_sequence
-                    None, // memos
-                    None, // sequence
-                    None, // signers
-                    None, // source_tag
-                    None, // ticket_sequence
-                    0,    // nftoken_taxon (0 for default, or expose as CLI param)
-                    None, // issuer
-                    transfer_fee.map(|v| v as u32),
-                    Some(uri.clone().into()),
-                );
+                let mut tx = NFTokenMint::builder(Cow::Owned(wallet.classic_address.clone()))
+                    .maybe_flags(flag_collection)
+                    .nftoken_taxon(0u32)
+                    .maybe_transfer_fee(transfer_fee.map(|v| v as u32))
+                    .uri(uri.clone())
+                    .build();
 
                 sign(&mut tx, &wallet, false)?;
                 let tx_blob = encode_and_print_tx(&tx)?;
@@ -962,19 +868,9 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
 
                 let wallet = Wallet::new(seed, 0)?;
 
-                let mut tx = NFTokenBurn::new(
-                    Cow::Owned(wallet.classic_address.clone()),
-                    None, // account_txn_id
-                    None, // fee
-                    None, // last_ledger_sequence
-                    None, // memos
-                    None, // sequence
-                    None, // signers
-                    None, // source_tag
-                    None, // ticket_sequence
-                    nftoken_id.clone().into(),
-                    None, // owner (optional, only needed if burning on behalf of another)
-                );
+                let mut tx = NFTokenBurn::builder(Cow::Owned(wallet.classic_address.clone()))
+                    .nftoken_id(nftoken_id.clone())
+                    .build();
 
                 sign(&mut tx, &wallet, false)?;
                 let tx_blob = encode_and_print_tx(&tx)?;
@@ -1015,7 +911,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let server_info = ServerInfo::new(None);
+                let server_info = ServerInfo::builder().build();
 
                 // Execute request and handle response
                 handle_response(client.request(server_info.into()), "Server info")
@@ -1039,16 +935,7 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                     WebSocketClient::open(parse_url(url)?)?;
 
                 // Subscribe to the stream
-                let subscribe = Subscribe::new(
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some(vec![stream_param]),
-                    None,
-                    None,
-                    None,
-                );
+                let subscribe = Subscribe::builder().streams(vec![stream_param]).build();
 
                 websocket.xrpl_send(subscribe.into())?;
 
@@ -1092,14 +979,11 @@ pub fn execute_command(command: &Commands) -> Result<(), CliError> {
                 let client = create_json_rpc_client(url)?;
 
                 // Create request
-                let ledger_data = LedgerData::new(
-                    None,
-                    None,
-                    ledger_index.as_deref().map(Into::into),
-                    ledger_hash.as_deref().map(Into::into),
-                    Some(*limit),
-                    None,
-                );
+                let ledger_data = LedgerData::builder()
+                    .maybe_ledger_hash(ledger_index.as_deref())
+                    .maybe_ledger_index(ledger_hash.as_deref())
+                    .limit(*limit)
+                    .build();
 
                 // Execute request and handle response
                 handle_response(client.request(ledger_data.into()), "Ledger data")

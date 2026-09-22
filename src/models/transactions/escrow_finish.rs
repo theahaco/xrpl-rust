@@ -80,39 +80,37 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for EscrowFinish<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> EscrowFinish<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        owner: Cow<'a, str>,
+        #[builder(into)] owner: Cow<'a, str>,
         offer_sequence: u32,
-        condition: Option<Cow<'a, str>>,
-        fulfillment: Option<Cow<'a, str>>,
+        #[builder(into)] condition: Option<Cow<'a, str>>,
+        #[builder(into)] fulfillment: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::EscrowFinish,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::EscrowFinish)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             owner,
             offer_sequence,
             condition,
@@ -296,7 +294,7 @@ mod tests {
             "A0258020E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855810100".into(),
             "A0028000".into(),
         )
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -327,7 +325,7 @@ mod tests {
             offer_sequence: 7,
             ..Default::default()
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123);
 
         assert_eq!(escrow_finish.owner, "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn");

@@ -85,13 +85,15 @@ impl<'a> Request<'a> for VaultInfo<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> VaultInfo<'a> {
     /// Construct a `vault_info` request using a ledger object ID lookup.
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        vault_id: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] vault_id: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -145,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_vault_info_new() {
-        let req = VaultInfo::new(None, VAULT_HEX_ID.into(), None, None);
+        let req = VaultInfo::builder(VAULT_HEX_ID).build();
         assert_eq!(req.vault_id.as_deref(), Some(VAULT_HEX_ID));
         assert_eq!(req.common_fields.command, RequestMethod::VaultInfo);
         assert!(req.owner.is_none());
@@ -154,13 +156,13 @@ mod tests {
 
     #[test]
     fn test_vault_id_lookup_valid() {
-        let req = VaultInfo::new(None, VAULT_HEX_ID.into(), None, None);
+        let req = VaultInfo::builder(VAULT_HEX_ID).build();
         assert!(req.validate().is_ok());
     }
 
     #[test]
     fn test_vault_info_serde() {
-        let req = VaultInfo::new(Some("req-1".into()), VAULT_HEX_ID.into(), None, None);
+        let req = VaultInfo::builder(VAULT_HEX_ID).id("req-1").build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: VaultInfo = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);
@@ -307,21 +309,21 @@ mod tests {
 
     #[test]
     fn test_vault_id_wrong_length_rejected() {
-        let req = VaultInfo::new(None, "DEADBEEF".into(), None, None);
+        let req = VaultInfo::builder("DEADBEEF").build();
         assert!(req.validate().is_err(), "short vault_id must be rejected");
     }
 
     #[test]
     fn test_vault_id_nonhex_rejected() {
         let non_hex: alloc::string::String = "Z".repeat(64);
-        let req = VaultInfo::new(None, non_hex.into(), None, None);
+        let req = VaultInfo::builder(non_hex).build();
         assert!(req.validate().is_err(), "non-hex vault_id must be rejected");
     }
 
     #[test]
     fn test_vault_id_all_zero_rejected() {
         let zeros: alloc::string::String = "0".repeat(64);
-        let req = VaultInfo::new(None, zeros.into(), None, None);
+        let req = VaultInfo::builder(zeros).build();
         assert!(
             req.validate().is_err(),
             "all-zero vault_id must be rejected"

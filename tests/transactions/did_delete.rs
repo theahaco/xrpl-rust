@@ -26,36 +26,20 @@ async fn test_did_delete_base() {
         let client = get_client().await;
 
         // Step 1: Create a DID
-        let mut create_tx = DIDSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(DATA_HEX.into()),
-            Some(DID_DOCUMENT_HEX.into()),
-            Some(URI_HEX.into()),
-        );
+        let mut create_tx = DIDSet::builder(wallet.classic_address.clone())
+            .data(DATA_HEX)
+            .did_document(DID_DOCUMENT_HEX)
+            .uri(URI_HEX)
+            .build();
         test_transaction(&mut create_tx, &wallet).await;
 
         // Verify DID exists
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::DID),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::DID)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");
@@ -70,33 +54,16 @@ async fn test_did_delete_base() {
         );
 
         // Step 2: Delete the DID
-        let mut delete_tx = DIDDelete::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let mut delete_tx = DIDDelete::builder(wallet.classic_address.clone()).build();
         test_transaction(&mut delete_tx, &wallet).await;
 
         // Step 3: Verify DID is gone
         let ao_response2 = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::DID),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::DID)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");
@@ -119,17 +86,7 @@ async fn test_did_delete_nonexistent() {
         let client = get_client().await;
 
         // Attempt to delete a DID that doesn't exist
-        let mut tx = DIDDelete::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let mut tx = DIDDelete::builder(wallet.classic_address.clone()).build();
 
         let result = sign_and_submit(&mut tx, client, &wallet, true, true)
             .await

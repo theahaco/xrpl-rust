@@ -22,23 +22,12 @@ async fn test_payment_channel_fund_base() {
         let destination = generate_funded_wallet().await;
 
         // Step 1: create the payment channel
-        let mut create_tx = PaymentChannelCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("100"),                     // amount: 100 drops
-            destination.classic_address.clone().into(), // destination
-            wallet.public_key.clone().into(),           // public_key
-            86400,                                      // settle_delay
-            None,
-            None,
-        );
+        let mut create_tx = PaymentChannelCreate::builder(wallet.classic_address.clone())
+            .amount(XRPAmount::from("100"))
+            .destination(destination.classic_address.clone())
+            .public_key(wallet.public_key.clone())
+            .settle_delay(86400)
+            .build();
 
         sign_and_submit(&mut create_tx, client, &wallet, true, true)
             .await
@@ -49,17 +38,10 @@ async fn test_payment_channel_fund_base() {
         // Step 2: get the channel ID from account_objects
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::PaymentChannel),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::PaymentChannel)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");
@@ -75,20 +57,10 @@ async fn test_payment_channel_fund_base() {
             .to_string();
 
         // Step 3: fund the channel with an additional 100 drops
-        let mut fund_tx = PaymentChannelFund::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("100"), // amount: 100 more drops
-            channel_id.into(),      // channel
-            None,                   // expiration
-        );
+        let mut fund_tx = PaymentChannelFund::builder(wallet.classic_address.clone())
+            .amount(XRPAmount::from("100"))
+            .channel(channel_id)
+            .build();
 
         test_transaction(&mut fund_tx, &wallet).await;
     })

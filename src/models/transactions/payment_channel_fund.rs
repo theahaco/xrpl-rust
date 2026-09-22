@@ -81,38 +81,36 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for PaymentChannelFund<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> PaymentChannelFund<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: XRPAmount<'a>,
-        channel: Cow<'a, str>,
+        #[builder(into)] amount: XRPAmount<'a>,
+        #[builder(into)] channel: Cow<'a, str>,
         expiration: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::PaymentChannelFund,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::PaymentChannelFund)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             channel,
             expiration,
@@ -173,7 +171,7 @@ mod tests {
             ..Default::default()
         }
         .with_expiration(543171558)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -276,7 +274,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(456)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(
             payment_channel_fund.common_fields.ticket_sequence,
@@ -292,20 +290,14 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = PaymentChannelFund::new(
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
-            None,
-            Some("12".into()),
-            Some(8_000_000),
-            None,
-            Some(123),
-            None,
-            None,
-            None,
-            XRPAmount::from("500000"),
-            "C1AE6DDDEEC05CF2978C0BAD6FE302948E9533691DC749DCDD3B9E5992CA6198".into(),
-            Some(543171558),
-        );
+        let txn = PaymentChannelFund::builder("rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn")
+            .fee("12")
+            .last_ledger_sequence(8_000_000)
+            .sequence(123)
+            .amount(XRPAmount::from("500000"))
+            .channel("C1AE6DDDEEC05CF2978C0BAD6FE302948E9533691DC749DCDD3B9E5992CA6198")
+            .expiration(543171558)
+            .build();
         assert_eq!(
             txn.get_transaction_type(),
             &TransactionType::PaymentChannelFund

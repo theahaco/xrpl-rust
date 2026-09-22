@@ -14,19 +14,10 @@ async fn test_ledger_base() {
 
         let response = client
             .request(
-                LedgerRequest::new(
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    Some("validated".into()),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                LedgerRequest::builder()
+                    .ledger_index("validated")
+                    .build()
+                    .into(),
             )
             .await
             .expect("ledger request failed");

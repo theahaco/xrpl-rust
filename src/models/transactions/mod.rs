@@ -358,25 +358,27 @@ where
     pub txn_signature: Option<Cow<'a, str>>,
 }
 
+#[bon::bon]
 impl<'a, T> CommonFields<'a, T>
 where
     T: IntoEnumIterator + Serialize + core::fmt::Debug,
 {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        transaction_type: TransactionType,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<T>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] transaction_type: TransactionType,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<T>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         network_id: Option<u32>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
-        signing_pub_key: Option<Cow<'a, str>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
+        #[builder(into)] signing_pub_key: Option<Cow<'a, str>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        txn_signature: Option<Cow<'a, str>>,
+        #[builder(into)] txn_signature: Option<Cow<'a, str>>,
     ) -> Self {
         CommonFields {
             account,
@@ -492,11 +494,11 @@ where
     fn into_self(self) -> Self;
 
     /// Set fee
-    fn with_fee(mut self, fee: XRPAmount<'a>) -> Self
+    fn with_fee(mut self, fee: impl Into<XRPAmount<'a>>) -> Self
     where
         Self: Sized,
     {
-        self.get_mut_common_fields().fee = Some(fee);
+        self.get_mut_common_fields().fee = Some(fee.into());
         self.into_self()
     }
 
@@ -607,8 +609,8 @@ where
         self
     }
 
-    pub fn with_fee(mut self, fee: XRPAmount<'a>) -> Self {
-        self.fee = Some(fee);
+    pub fn with_fee(mut self, fee: impl Into<XRPAmount<'a>>) -> Self {
+        self.fee = Some(fee.into());
         self
     }
 
@@ -991,7 +993,7 @@ mod tests {
             .parse::<CommonFields<payment::PaymentFlag>>()
             .unwrap()
             .with_transaction_type(TransactionType::Payment)
-            .with_fee("12".into())
+            .with_fee("12")
             .with_sequence(100)
             .with_last_ledger_sequence(596447)
             .with_source_tag(42)
@@ -1133,7 +1135,7 @@ mod tests {
                 .parse::<CommonFields<payment::PaymentFlag>>()
                 .unwrap()
                 .with_transaction_type(TransactionType::Payment)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(100),
             amount: Amount::XRPAmount(XRPAmount::from("1000000")),
             destination: "rReceiver456".into(),
@@ -1155,7 +1157,7 @@ mod tests {
         let account_set = AccountSet {
             common_fields: CommonFields::from_account("rAccount123")
                 .with_transaction_type(TransactionType::AccountSet)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(50),
             domain: Some("6578616d706c652e636f6d".into()), // "example.com"
             ..Default::default()
@@ -1184,7 +1186,7 @@ mod tests {
                 .parse::<CommonFields<payment::PaymentFlag>>()
                 .unwrap()
                 .with_transaction_type(TransactionType::Payment)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(100)
                 .with_last_ledger_sequence(596447)
                 .with_source_tag(12345)
@@ -1208,7 +1210,7 @@ mod tests {
                 .parse::<CommonFields<payment::PaymentFlag>>()
                 .unwrap()
                 .with_transaction_type(TransactionType::Payment)
-                .with_fee("12".into())
+                .with_fee("12")
                 .with_sequence(100)
                 .with_last_ledger_sequence(596447)
                 .with_source_tag(12345)
@@ -1275,8 +1277,8 @@ mod tests {
         let common_fields = "rAccount123"
             .parse::<CommonFields<payment::PaymentFlag>>()
             .unwrap()
-            .with_fee("10".into())
-            .with_fee("20".into()) // Should overwrite the first fee
+            .with_fee("10")
+            .with_fee("20") // Should overwrite the first fee
             .with_sequence(100)
             .with_sequence(200); // Should overwrite the first sequence
 

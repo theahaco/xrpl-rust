@@ -406,25 +406,16 @@ async fn submit_first_convert(
         holder_pk,
     );
 
-    let mut tx = ConfidentialMPTConvert::new(
-        wallet.classic_address.clone().into(),
-        None,           // account_txn_id
-        None,           // fee — autofilled (cMPT = 10× base)
-        None,           // last_ledger_sequence
-        None,           // memos
-        Some(sequence), // bound into the proof context above
-        None,           // signers
-        None,           // source_tag
-        None,           // ticket_sequence
-        issuance_id.to_string().into(),
-        amount.to_string().into(),
-        m.holder_encrypted_amount.into(),
-        m.issuer_encrypted_amount.into(),
-        m.blinding_factor.into(),
-        Some(m.holder_encryption_key.into()), // first Convert registers the key
-        None,                                 // AuditorEncryptedAmount (no auditor)
-        Some(m.zk_proof.into()),              // first Convert carries the proof
-    );
+    let mut tx = ConfidentialMPTConvert::builder(wallet.classic_address.clone())
+        .sequence(sequence)
+        .mptoken_issuance_id(issuance_id.to_string())
+        .mpt_amount(amount.to_string())
+        .holder_encrypted_amount(m.holder_encrypted_amount)
+        .issuer_encrypted_amount(m.issuer_encrypted_amount)
+        .blinding_factor(m.blinding_factor)
+        .holder_encryption_key(m.holder_encryption_key)
+        .zk_proof(m.zk_proof)
+        .build();
 
     test_transaction(&mut tx, wallet).await;
 }
@@ -836,18 +827,9 @@ async fn confidential_mpt_merge_inbox_rejects_non_confidential_issuance() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            issuance_id.clone().into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(holder.classic_address.clone())
+            .mptoken_issuance_id(issuance_id.clone())
+            .build();
         test_transaction_with_result(&mut tx, &holder, "tecNO_PERMISSION").await;
     })
     .await;
@@ -866,18 +848,9 @@ async fn confidential_mpt_merge_inbox_rejects_uninitialized_mptoken() {
         // remain uninitialized.
         let setup = setup_confidential_issuance(TF_MPT_CAN_CONFIDENTIAL_AMOUNT).await;
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            setup.issuance_id.clone().into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecNO_PERMISSION").await;
     })
     .await;
@@ -901,18 +874,9 @@ async fn confidential_mpt_merge_inbox_rejects_missing_issuance() {
         id[4..].copy_from_slice(&account_id_bytes(&issuer.classic_address));
         let missing_issuance_id = uppercase_hex(&id);
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            missing_issuance_id.into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(holder.classic_address.clone())
+            .mptoken_issuance_id(missing_issuance_id)
+            .build();
         test_transaction_with_result(&mut tx, &holder, "tecOBJECT_NOT_FOUND").await;
     })
     .await;
@@ -946,18 +910,9 @@ async fn confidential_mpt_merge_inbox_rejects_unauthorized_holder() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            setup.issuance_id.clone().into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecNO_AUTH").await;
     })
     .await;
@@ -990,18 +945,9 @@ async fn confidential_mpt_merge_inbox_rejects_locked_holder() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            setup.issuance_id.clone().into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecLOCKED").await;
     })
     .await;
@@ -1032,18 +978,9 @@ async fn confidential_mpt_merge_inbox_rejects_locked_issuance() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTMergeInbox::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            setup.issuance_id.clone().into(),
-        );
+        let mut tx = ConfidentialMPTMergeInbox::builder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecLOCKED").await;
     })
     .await;
@@ -1079,21 +1016,13 @@ async fn confidential_mpt_clawback() {
                 .expect("fetch issuer sequence");
         let zk_proof = build_clawback_proof(&setup, sequence, amount).await;
 
-        let mut tx = ConfidentialMPTClawback::new(
-            setup.issuer.classic_address.clone().into(),
-            None,           // account_txn_id
-            None,           // fee — autofilled (cMPT = 10× base)
-            None,           // last_ledger_sequence
-            None,           // memos
-            Some(sequence), // bound into the proof context above
-            None,           // signers
-            None,           // source_tag
-            None,           // ticket_sequence
-            setup.holder.classic_address.clone().into(),
-            setup.issuance_id.clone().into(),
-            amount.to_string().into(),
-            zk_proof.into(),
-        );
+        let mut tx = ConfidentialMPTClawback::builder(setup.issuer.classic_address.clone())
+            .sequence(sequence)
+            .holder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .mpt_amount(amount.to_string())
+            .zk_proof(zk_proof)
+            .build();
 
         test_transaction(&mut tx, &setup.issuer).await;
 
@@ -1153,18 +1082,9 @@ async fn build_clawback_proof(setup: &ConfidentialSetup, sequence: u32, amount: 
 /// Submit the holder's `ConfidentialMPTMergeInbox` via the SDK and assert
 /// `tesSUCCESS`. Moves the confidential inbox into the spending balance.
 async fn merge_confidential_inbox(setup: &ConfidentialSetup) {
-    let mut tx = ConfidentialMPTMergeInbox::new(
-        setup.holder.classic_address.clone().into(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        setup.issuance_id.clone().into(),
-    );
+    let mut tx = ConfidentialMPTMergeInbox::builder(setup.holder.classic_address.clone())
+        .mptoken_issuance_id(setup.issuance_id.clone())
+        .build();
     test_transaction(&mut tx, &setup.holder).await;
 }
 
@@ -1193,25 +1113,7 @@ async fn confidential_mpt_convert_back() {
                 .expect("fetch holder sequence");
         let m = build_convert_back_material(&setup, sequence, amount, amount).await;
 
-        let mut tx = ConfidentialMPTConvertBack::new(
-            setup.holder.classic_address.clone().into(),
-            None,           // account_txn_id
-            None,           // fee — autofilled (cMPT = 10× base)
-            None,           // last_ledger_sequence
-            None,           // memos
-            Some(sequence), // bound into the proof context above
-            None,           // signers
-            None,           // source_tag
-            None,           // ticket_sequence
-            setup.issuance_id.clone().into(),
-            amount.to_string().into(),
-            m.holder_encrypted_amount.into(),
-            m.issuer_encrypted_amount.into(),
-            m.blinding_factor.into(),
-            m.balance_commitment.into(),
-            m.zk_proof.into(),
-            None, // auditor_encrypted_amount (no auditor)
-        );
+        let mut tx = ConfidentialMPTConvertBack::builder(setup.holder.classic_address.clone()).sequence(sequence).mptoken_issuance_id(setup.issuance_id.clone()).mpt_amount(amount.to_string()).holder_encrypted_amount(m.holder_encrypted_amount).issuer_encrypted_amount(m.issuer_encrypted_amount).blinding_factor(m.blinding_factor).balance_commitment(m.balance_commitment).zk_proof(m.zk_proof).build();
 
         test_transaction(&mut tx, &setup.holder).await;
 
@@ -1382,28 +1284,17 @@ async fn confidential_mpt_send() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTSend::new(
-            setup.holder.classic_address.clone().into(),
-            None,           // account_txn_id
-            None,           // fee — autofilled (cMPT = 10× base)
-            None,           // last_ledger_sequence
-            None,           // memos
-            Some(sequence), // bound into the proof context above
-            None,           // signers
-            None,           // source_tag
-            None,           // ticket_sequence
-            dest.classic_address.clone().into(),
-            None, // destination_tag
-            setup.issuance_id.clone().into(),
-            m.sender_encrypted_amount.into(),
-            m.destination_encrypted_amount.into(),
-            m.issuer_encrypted_amount.into(),
-            m.amount_commitment.into(),
-            m.balance_commitment.into(),
-            m.zk_proof.into(),
-            None, // auditor_encrypted_amount (no auditor)
-            None, // credential_ids
-        );
+        let mut tx = ConfidentialMPTSend::builder(setup.holder.classic_address.clone())
+            .sequence(sequence)
+            .destination(dest.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .sender_encrypted_amount(m.sender_encrypted_amount)
+            .destination_encrypted_amount(m.destination_encrypted_amount)
+            .issuer_encrypted_amount(m.issuer_encrypted_amount)
+            .amount_commitment(m.amount_commitment)
+            .balance_commitment(m.balance_commitment)
+            .zk_proof(m.zk_proof)
+            .build();
 
         test_transaction(&mut tx, &setup.holder).await;
 
@@ -1580,28 +1471,17 @@ async fn confidential_mpt_send_rejects_uninitialized_destination() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTSend::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            Some(sequence),
-            None,
-            None,
-            None,
-            dest.classic_address.clone().into(),
-            None,
-            setup.issuance_id.clone().into(),
-            m.sender_encrypted_amount.into(),
-            m.destination_encrypted_amount.into(),
-            m.issuer_encrypted_amount.into(),
-            m.amount_commitment.into(),
-            m.balance_commitment.into(),
-            m.zk_proof.into(),
-            None,
-            None,
-        );
+        let mut tx = ConfidentialMPTSend::builder(setup.holder.classic_address.clone())
+            .sequence(sequence)
+            .destination(dest.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .sender_encrypted_amount(m.sender_encrypted_amount)
+            .destination_encrypted_amount(m.destination_encrypted_amount)
+            .issuer_encrypted_amount(m.issuer_encrypted_amount)
+            .amount_commitment(m.amount_commitment)
+            .balance_commitment(m.balance_commitment)
+            .zk_proof(m.zk_proof)
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecNO_PERMISSION").await;
     })
     .await;
@@ -1645,25 +1525,16 @@ async fn confidential_mpt_convert_back_rejects_locked_holder() {
         )
         .await;
 
-        let mut tx = ConfidentialMPTConvertBack::new(
-            setup.holder.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            Some(sequence),
-            None,
-            None,
-            None,
-            setup.issuance_id.clone().into(),
-            amount.to_string().into(),
-            m.holder_encrypted_amount.into(),
-            m.issuer_encrypted_amount.into(),
-            m.blinding_factor.into(),
-            m.balance_commitment.into(),
-            m.zk_proof.into(),
-            None,
-        );
+        let mut tx = ConfidentialMPTConvertBack::builder(setup.holder.classic_address.clone())
+            .sequence(sequence)
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .mpt_amount(amount.to_string())
+            .holder_encrypted_amount(m.holder_encrypted_amount)
+            .issuer_encrypted_amount(m.issuer_encrypted_amount)
+            .blinding_factor(m.blinding_factor)
+            .balance_commitment(m.balance_commitment)
+            .zk_proof(m.zk_proof)
+            .build();
         test_transaction_with_result(&mut tx, &setup.holder, "tecLOCKED").await;
     })
     .await;
@@ -1691,21 +1562,13 @@ async fn confidential_mpt_clawback_rejects_non_clawbackable_issuance() {
                 .expect("fetch issuer sequence");
         let zk_proof = build_clawback_proof(&setup, sequence, amount).await;
 
-        let mut tx = ConfidentialMPTClawback::new(
-            setup.issuer.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            Some(sequence),
-            None,
-            None,
-            None,
-            setup.holder.classic_address.clone().into(),
-            setup.issuance_id.clone().into(),
-            amount.to_string().into(),
-            zk_proof.into(),
-        );
+        let mut tx = ConfidentialMPTClawback::builder(setup.issuer.classic_address.clone())
+            .sequence(sequence)
+            .holder(setup.holder.classic_address.clone())
+            .mptoken_issuance_id(setup.issuance_id.clone())
+            .mpt_amount(amount.to_string())
+            .zk_proof(zk_proof)
+            .build();
         test_transaction_with_result(&mut tx, &setup.issuer, "tecNO_PERMISSION").await;
     })
     .await;

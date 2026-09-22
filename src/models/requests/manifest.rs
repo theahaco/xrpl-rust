@@ -37,8 +37,13 @@ impl<'a> Request<'a> for Manifest<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Manifest<'a> {
-    pub fn new(id: Option<Cow<'a, str>>, public_key: Cow<'a, str>) -> Self {
+    #[builder]
+    pub fn new(
+        #[builder(start_fn, into)] public_key: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+    ) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::Manifest,
@@ -55,10 +60,9 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = Manifest::new(
-            Some("mf-1".into()),
-            "nHUFE9prPXPrHcG3SkwP1UzAQbSphqyQkQK9ATXLZsfkezhhda3p".into(),
-        );
+        let req = Manifest::builder("nHUFE9prPXPrHcG3SkwP1UzAQbSphqyQkQK9ATXLZsfkezhhda3p")
+            .id("mf-1")
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: Manifest = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

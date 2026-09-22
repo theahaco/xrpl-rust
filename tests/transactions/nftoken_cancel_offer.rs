@@ -29,22 +29,10 @@ async fn test_nftoken_cancel_offer_base() {
         let wallet = generate_funded_wallet().await;
 
         // Step 1: mint an NFT.
-        let mut mint = NFTokenMint::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            0,
-            None,
-            None,
-            Some(hex::encode(TEST_NFT_URL).into()),
-        );
+        let mut mint = NFTokenMint::builder(wallet.classic_address.clone())
+            .nftoken_taxon(0)
+            .uri(hex::encode(TEST_NFT_URL))
+            .build();
 
         sign_and_submit(&mut mint, client, &wallet, true, true)
             .await
@@ -55,7 +43,9 @@ async fn test_nftoken_cancel_offer_base() {
         // Get the NFT ID from account_nfts
         let nfts_response = client
             .request(
-                AccountNfts::new(None, wallet.classic_address.clone().into(), None, None).into(),
+                AccountNfts::builder(wallet.classic_address.clone())
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_nfts");
@@ -67,23 +57,11 @@ async fn test_nftoken_cancel_offer_base() {
         let nftoken_id = nfts_result.nfts[0].nft_id.to_string();
 
         // Step 2: create a sell offer for the minted NFT.
-        let mut create_offer = NFTokenCreateOffer::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            Some(vec![NFTokenCreateOfferFlag::TfSellOffer].into()),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000000")), // 10 XRP
-            nftoken_id.clone().into(),
-            None,
-            None,
-            None,
-        );
+        let mut create_offer = NFTokenCreateOffer::builder(wallet.classic_address.clone())
+            .flags(vec![NFTokenCreateOfferFlag::TfSellOffer])
+            .amount(Amount::XRPAmount(XRPAmount::from("10000000")))
+            .nftoken_id(nftoken_id.clone())
+            .build();
 
         sign_and_submit(&mut create_offer, client, &wallet, true, true)
             .await
@@ -95,7 +73,7 @@ async fn test_nftoken_cancel_offer_base() {
         // NOTE: account_objects has a parsing bug in the SDK (UnexpectedResultType) for NFT-related
         // objects; nft_sell_offers avoids that path entirely.
         let offers_response = client
-            .request(NftSellOffers::new(None, nftoken_id.clone().into()).into())
+            .request(NftSellOffers::builder(nftoken_id.clone()).build().into())
             .await
             .expect("Failed to query nft_sell_offers");
         let offers_result: results::nft_sell_offers::NFTSellOffers<'_> = offers_response
@@ -108,18 +86,9 @@ async fn test_nftoken_cancel_offer_base() {
         // Step 3: cancel the sell offer.
         // NOTE: Vec<Cow<'a, str>> fields require Cow::Owned(string) instead of .into()
         // so that the inferred lifetime is 'static.
-        let mut cancel = NFTokenCancelOffer::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            vec![Cow::Owned(offer_id)],
-        );
+        let mut cancel = NFTokenCancelOffer::builder(wallet.classic_address.clone())
+            .nftoken_offers(vec![Cow::Owned(offer_id)])
+            .build();
 
         test_transaction(&mut cancel, &wallet).await;
     })

@@ -81,37 +81,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for AccountDelete<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountDelete<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        destination: Cow<'a, str>,
+        #[builder(into)] destination: Cow<'a, str>,
         destination_tag: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AccountDelete,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AccountDelete)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             destination,
             destination_tag,
             credential_ids: None,
@@ -178,7 +176,7 @@ mod tests {
             ..Default::default()
         }
         .with_destination_tag(13)
-        .with_fee("2000000".into())
+        .with_fee("2000000")
         .with_sequence(2470665)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -249,7 +247,7 @@ mod tests {
             destination: "rDestinationAccount456".into(),
             ..Default::default()
         }
-        .with_fee("2000000".into()) // 2 XRP minimum fee for AccountDelete
+        .with_fee("2000000") // 2 XRP minimum fee for AccountDelete
         .with_sequence(100);
 
         assert_eq!(minimal_delete.destination, "rDestinationAccount456");
@@ -273,7 +271,7 @@ mod tests {
             ..Default::default()
         }
         .with_destination_tag(987654321) // Exchange customer ID
-        .with_fee("2000000".into())
+        .with_fee("2000000")
         .with_sequence(200)
         .with_memo(Memo {
             memo_data: Some("closing account".into()),
@@ -319,7 +317,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(54321)
-        .with_fee("2000000".into());
+        .with_fee("2000000");
 
         assert_eq!(ticket_delete.common_fields.ticket_sequence, Some(54321));
         assert_eq!(ticket_delete.destination, "rDestination222");
@@ -349,7 +347,7 @@ mod tests {
             memo_type: Some("text".into()),
         })
         .with_destination_tag(555)
-        .with_fee("2000000".into())
+        .with_fee("2000000")
         .with_sequence(300);
 
         assert_eq!(

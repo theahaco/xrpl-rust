@@ -3,11 +3,8 @@
 //   - with_credential_ids: provision credential + DepositPreauth on destination,
 //     create channel, claim with credential_ids set
 //
-// NOTE: PaymentChannelClaim has `flags` at parameter position 4 (after `fee`), the same
-// anomaly as NFTokenMint and PaymentChannelClaim. Pass None for no flags.
-//
-// NOTE: `amount` in PaymentChannelClaim is `Option<Cow<'a, str>>` (raw drop string),
-// not XRPAmount. Pass `Some("100".into())` for 100 drops.
+// NOTE: `amount` and `balance` in PaymentChannelClaim are `Option<Cow<'a, str>>` (raw
+// drop strings), not XRPAmount. Pass `.amount("100")` for 100 drops.
 //
 // NOTE: We read the channel ID from account_objects since xrpl-rust has no
 // hashPaymentChannel utility.
@@ -33,23 +30,12 @@ async fn test_payment_channel_claim_base() {
         let destination = generate_funded_wallet().await;
 
         // Step 1: create the payment channel
-        let mut create_tx = PaymentChannelCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            XRPAmount::from("100"),                     // amount: 100 drops
-            destination.classic_address.clone().into(), // destination
-            wallet.public_key.clone().into(),           // public_key
-            86400,                                      // settle_delay
-            None,
-            None,
-        );
+        let mut create_tx = PaymentChannelCreate::builder(wallet.classic_address.clone())
+            .amount(XRPAmount::from("100"))
+            .destination(destination.classic_address.clone())
+            .public_key(wallet.public_key.clone())
+            .settle_delay(86400)
+            .build();
 
         sign_and_submit(&mut create_tx, client, &wallet, true, true)
             .await
@@ -60,17 +46,10 @@ async fn test_payment_channel_claim_base() {
         // Step 2: get the channel ID from account_objects
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::PaymentChannel),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::PaymentChannel)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");
@@ -86,24 +65,10 @@ async fn test_payment_channel_claim_base() {
             .to_string();
 
         // Step 3: submit a claim for 100 drops (source claims the full channel balance)
-        // flags is at position 4 in PaymentChannelClaim::new().
-        let mut claim_tx = PaymentChannelClaim::new(
-            wallet.classic_address.clone().into(),
-            None,               // account_txn_id
-            None,               // fee
-            None,               // flags (position 4 — same anomaly as NFTokenMint)
-            None,               // last_ledger_sequence
-            None,               // memos
-            None,               // sequence
-            None,               // signers
-            None,               // source_tag
-            None,               // ticket_sequence
-            channel_id.into(),  // channel
-            None,               // amount (signature-based; not used here)
-            Some("100".into()), // balance: deliver 100 drops to destination
-            None,               // public_key
-            None,               // signature
-        );
+        let mut claim_tx = PaymentChannelClaim::builder(wallet.classic_address.clone())
+            .channel(channel_id)
+            .balance("100")
+            .build();
 
         test_transaction(&mut claim_tx, &wallet).await;
     })
@@ -145,17 +110,10 @@ async fn test_payment_channel_claim_with_credential_ids() {
         // Step 2: read channel ID from account_objects.
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    subject.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::PaymentChannel),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(subject.classic_address.clone())
+                    .r#type(AccountObjectType::PaymentChannel)
+                    .build()
+                    .into(),
             )
             .await
             .expect("Failed to query account_objects");

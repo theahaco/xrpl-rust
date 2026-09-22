@@ -33,8 +33,10 @@ impl<'a> Request<'a> for Fee<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Fee<'a> {
-    pub fn new(id: Option<Cow<'a, str>>) -> Self {
+    #[builder]
+    pub fn new(#[builder(into)] id: Option<Cow<'a, str>>) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::Fee,

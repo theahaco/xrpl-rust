@@ -93,36 +93,34 @@ impl<'a> NFTokenCancelOfferError for NFTokenCancelOffer<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTokenCancelOffer<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        nftoken_offers: Vec<Cow<'a, str>>,
+        #[builder(into)] nftoken_offers: Vec<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::NFTokenCancelOffer,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::NFTokenCancelOffer)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             nftoken_offers,
         }
     }
@@ -214,7 +212,7 @@ mod tests {
             ],
         }
         .add_offer("1A2B3C4D5E6F7890ABCDEF1234567890FEDCBA0987654321ABCDEF1234567890".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -295,7 +293,7 @@ mod tests {
             "OFFER2468ACEF13579BDF024681357ACE9BDF13579CE024681357BDF024681".into(),
             "OFFER369CFBEA147D258E047AD158FB269D147D258FB047AD158E047AD158E0".into(),
         ])
-        .with_fee("15".into())
+        .with_fee("15")
         .with_sequence(456);
 
         assert_eq!(cancel_multiple.nftoken_offers.len(), 3);
@@ -317,7 +315,7 @@ mod tests {
             ],
         }
         .with_ticket_sequence(789)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_cancel.common_fields.ticket_sequence, Some(789));
         assert_eq!(ticket_cancel.nftoken_offers.len(), 1);
@@ -338,7 +336,7 @@ mod tests {
         .add_offer("FIRST1234567890ABCDEF1234567890FEDCBA0987654321ABCDEF1234567890".into())
         .add_offer("SECOND2468ACEF13579BDF024681357ACE9BDF13579CE024681357BDF024681".into())
         .add_offer("THIRD369CFBEA147D258E047AD158FB269D147D258FB047AD158E047AD158E0".into())
-        .with_fee("18".into())
+        .with_fee("18")
         .with_sequence(789);
 
         assert_eq!(incremental_cancel.nftoken_offers.len(), 3);
@@ -381,7 +379,7 @@ mod tests {
             memo_type: Some("text".into()),
         })
         .with_source_tag(98765)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(111);
 
         assert_eq!(memo_cancel.common_fields.memos.as_ref().unwrap().len(), 2);

@@ -38,7 +38,7 @@ async fn test_websocket_server_info_request() {
     assert!(client.is_open());
 
     let response = client
-        .request(ServerInfo::new(None).into())
+        .request(ServerInfo::builder().build().into())
         .await
         .expect("server_info request");
     assert!(response.is_success(), "server_info should succeed");
@@ -58,16 +58,10 @@ async fn test_websocket_account_info_request_for_genesis() {
 
     let response = client
         .request(
-            AccountInfo::new(
-                None,
-                crate::common::constants::GENESIS_ACCOUNT.into(),
-                None,
-                None,
-                Some(true),
-                None,
-                None,
-            )
-            .into(),
+            AccountInfo::builder(crate::common::constants::GENESIS_ACCOUNT)
+                .strict(true)
+                .build()
+                .into(),
         )
         .await
         .expect("account_info request");
@@ -90,7 +84,7 @@ async fn test_websocket_sequential_requests_on_same_connection() {
 
     for _ in 0..3 {
         let response = client
-            .request(ServerInfo::new(None).into())
+            .request(ServerInfo::builder().build().into())
             .await
             .expect("server_info request");
         assert!(response.is_success());

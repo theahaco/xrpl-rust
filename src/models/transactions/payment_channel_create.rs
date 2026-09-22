@@ -88,41 +88,39 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for PaymentChannelCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> PaymentChannelCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: XRPAmount<'a>,
-        destination: Cow<'a, str>,
-        public_key: Cow<'a, str>,
+        #[builder(into)] amount: XRPAmount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] public_key: Cow<'a, str>,
         settle_delay: u32,
         cancel_after: Option<u32>,
         destination_tag: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::PaymentChannelCreate,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::PaymentChannelCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             destination,
             settle_delay,
@@ -196,7 +194,7 @@ mod tests {
         }
         .with_cancel_after(533171558)
         .with_destination_tag(23480)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(11747)
@@ -316,7 +314,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(456)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(
             payment_channel_create.common_fields.ticket_sequence,
@@ -346,7 +344,7 @@ mod tests {
         }
         .with_cancel_after(1893456000) // Far future timestamp
         .with_destination_tag(98765)
-        .with_fee("15".into());
+        .with_fee("15");
 
         assert_eq!(payment_channel_create.amount.0, "100000000");
         assert_eq!(payment_channel_create.settle_delay, 604800);

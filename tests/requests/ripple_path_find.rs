@@ -16,16 +16,10 @@ async fn test_ripple_path_find_base() {
         let wallet1 = crate::common::generate_funded_wallet().await;
         let wallet2 = crate::common::generate_funded_wallet().await;
 
-        let request = RipplePathFindRequest::new(
-            None,                                   // id
-            wallet2.classic_address.clone().into(), // destination_account
-            Amount::XRPAmount("100".into()),        // destination_amount (XRP drops)
-            wallet1.classic_address.clone().into(), // source_account
-            None,                                   // ledger_hash
-            None,                                   // ledger_index
-            None,                                   // send_max
-            None,                                   // source_currencies
-        );
+        let request = RipplePathFindRequest::builder(wallet2.classic_address.clone())
+            .destination_amount(Amount::XRPAmount("100".into()))
+            .source_account(wallet1.classic_address.clone())
+            .build();
 
         let response = client
             .request(request.into())

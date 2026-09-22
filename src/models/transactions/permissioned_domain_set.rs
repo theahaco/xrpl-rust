@@ -182,19 +182,21 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for PermissionedDomainSet<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> PermissionedDomainSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        domain_id: Option<Cow<'a, str>>,
-        accepted_credentials: Vec<Credential>,
+        #[builder(into)] domain_id: Option<Cow<'a, str>>,
+        #[builder(into)] accepted_credentials: Vec<Credential>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -313,7 +315,7 @@ mod tests {
             },
             ..Default::default()
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_last_ledger_sequence(596447)
         .with_source_tag(42)
@@ -441,22 +443,15 @@ mod tests {
 
     #[test]
     fn test_new_constructor() {
-        let txn = PermissionedDomainSet::new(
-            TEST_ACCOUNT.into(),
-            None,
-            Some("12".into()),
-            Some(596447),
-            None,
-            Some(1),
-            None,
-            None,
-            None,
-            None,
-            vec![Credential {
+        let txn = PermissionedDomainSet::builder(TEST_ACCOUNT)
+            .fee("12")
+            .last_ledger_sequence(596447)
+            .sequence(1)
+            .accepted_credentials(vec![Credential {
                 issuer: TEST_ACCOUNT.to_string(),
-                credential_type: "4B5943".to_string(), // hex("KYC")
-            }],
-        );
+                credential_type: "4B5943".to_string(),
+            }])
+            .build();
 
         assert_eq!(txn.common_fields.account, TEST_ACCOUNT);
         assert_eq!(
@@ -500,7 +495,7 @@ mod tests {
             },
             ..Default::default()
         }
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(1)
         .with_memo(Memo {
             memo_data: Some("creating domain".into()),
@@ -752,7 +747,7 @@ mod tests {
             ..Default::default()
         }
         .with_ticket_sequence(42)
-        .with_fee("10".into())
+        .with_fee("10")
         .with_credential(Credential {
             issuer: TEST_ACCOUNT.to_string(),
             credential_type: "4B5943".to_string(), // hex("KYC")

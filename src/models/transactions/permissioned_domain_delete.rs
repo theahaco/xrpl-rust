@@ -77,18 +77,20 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for PermissionedDomainDelete<'a> 
     }
 }
 
+#[bon::bon]
 impl<'a> PermissionedDomainDelete<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        domain_id: Cow<'a, str>,
+        #[builder(into)] domain_id: Cow<'a, str>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -178,7 +180,7 @@ mod tests {
             },
             domain_id: "AABB00112233445566778899AABB00112233445566778899AABB00112233445A".into(),
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(100)
         .with_last_ledger_sequence(596447)
         .with_source_tag(42)
@@ -226,18 +228,12 @@ mod tests {
 
     #[test]
     fn test_new_constructor() {
-        let txn = PermissionedDomainDelete::new(
-            TEST_ACCOUNT.into(),
-            None,
-            Some("12".into()),
-            Some(596447),
-            None,
-            Some(1),
-            None,
-            None,
-            None,
-            "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2".into(),
-        );
+        let txn = PermissionedDomainDelete::builder(TEST_ACCOUNT)
+            .fee("12")
+            .last_ledger_sequence(596447)
+            .sequence(1)
+            .domain_id("A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2")
+            .build();
 
         assert_eq!(txn.common_fields.account, TEST_ACCOUNT);
         assert_eq!(
@@ -264,7 +260,7 @@ mod tests {
             domain_id: "AABB00112233445566778899AABB00112233445566778899AABB00112233445A".into(),
         }
         .with_ticket_sequence(42)
-        .with_fee("10".into());
+        .with_fee("10");
 
         assert_eq!(txn.common_fields.ticket_sequence, Some(42));
         assert!(txn.common_fields.sequence.is_none());
@@ -281,7 +277,7 @@ mod tests {
             domain_id: "AABB00112233445566778899AABB00112233445566778899AABB00112233445A".into(),
         }
         .with_account_txn_id("F1E2D3C4B5A69788".into())
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(50);
 
         assert_eq!(

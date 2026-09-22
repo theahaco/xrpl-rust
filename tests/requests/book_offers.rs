@@ -13,19 +13,12 @@ async fn test_book_offers_base() {
         let client = crate::common::get_client().await;
         let wallet = crate::common::generate_funded_wallet().await;
 
-        let request = BookOffers::new(
-            None,                      // id
-            Currency::XRP(XRP::new()), // taker_gets
-            Currency::IssuedCurrency(IssuedCurrency::new(
-                // taker_pays
+        let request = BookOffers::builder(Currency::XRP(XRP::new()))
+            .taker_pays(Currency::IssuedCurrency(IssuedCurrency::new(
                 "USD".into(),
                 wallet.classic_address.clone().into(),
-            )),
-            None, // ledger_hash
-            None, // ledger_index
-            None, // limit
-            None, // taker
-        );
+            )))
+            .build();
 
         let response = client
             .request(request.into())

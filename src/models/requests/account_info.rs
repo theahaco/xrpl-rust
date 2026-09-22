@@ -52,12 +52,14 @@ impl<'a> Request<'a> for AccountInfo<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountInfo<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         strict: Option<bool>,
         queue: Option<bool>,
         signer_lists: Option<bool>,

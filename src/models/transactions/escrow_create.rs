@@ -92,41 +92,39 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for EscrowCreate<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> EscrowCreate<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: XRPAmount<'a>,
-        destination: Cow<'a, str>,
+        #[builder(into)] amount: XRPAmount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
         cancel_after: Option<u32>,
-        condition: Option<Cow<'a, str>>,
+        #[builder(into)] condition: Option<Cow<'a, str>>,
         destination_tag: Option<u32>,
         finish_after: Option<u32>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::EscrowCreate,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::EscrowCreate)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             destination,
             destination_tag,
@@ -272,7 +270,7 @@ mod tests {
             "A0258020E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855810100".into(),
         )
         .with_source_tag(11747)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123);
 
         assert_eq!(escrow_create.amount.0, "10000");

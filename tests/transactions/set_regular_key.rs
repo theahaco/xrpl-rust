@@ -15,18 +15,9 @@ async fn test_set_regular_key_base() {
         let seed = xrpl::core::keypairs::generate_seed(None, None).expect("seed");
         let key_wallet = xrpl::wallet::Wallet::new(&seed, 0).expect("key wallet");
 
-        let mut tx = SetRegularKey::new(
-            wallet.classic_address.clone().into(),
-            None,                                            // account_txn_id
-            None,                                            // fee
-            None,                                            // last_ledger_sequence
-            None,                                            // memos
-            None,                                            // sequence
-            None,                                            // signers
-            None,                                            // source_tag
-            None,                                            // ticket_sequence
-            Some(key_wallet.classic_address.clone().into()), // regular_key
-        );
+        let mut tx = SetRegularKey::builder(wallet.classic_address.clone())
+            .regular_key(key_wallet.classic_address.clone())
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })
@@ -41,33 +32,13 @@ async fn test_set_regular_key_remove() {
         let key_wallet = xrpl::wallet::Wallet::new(&seed, 0).expect("key wallet");
 
         // Step 1: set a regular key first.
-        let mut set_tx = SetRegularKey::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(key_wallet.classic_address.clone().into()),
-        );
+        let mut set_tx = SetRegularKey::builder(wallet.classic_address.clone())
+            .regular_key(key_wallet.classic_address.clone())
+            .build();
         test_transaction(&mut set_tx, &wallet).await;
 
         // Step 2: remove the regular key by omitting regular_key.
-        let mut remove_tx = SetRegularKey::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            None, // regular_key — None removes the key
-        );
+        let mut remove_tx = SetRegularKey::builder(wallet.classic_address.clone()).build();
         test_transaction(&mut remove_tx, &wallet).await;
     })
     .await;
@@ -85,18 +56,9 @@ async fn test_set_regular_key_with_xaddress() {
         let xaddress = classic_address_to_xaddress(&key_wallet.classic_address, None, true)
             .expect("xaddress encoding");
 
-        let mut tx = SetRegularKey::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            Some(xaddress.into()),
-        );
+        let mut tx = SetRegularKey::builder(wallet.classic_address.clone())
+            .regular_key(xaddress)
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

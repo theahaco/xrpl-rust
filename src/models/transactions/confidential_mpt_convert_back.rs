@@ -154,44 +154,42 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for ConfidentialMPTConvertBack<'a
     }
 }
 
+#[bon::bon]
 impl<'a> ConfidentialMPTConvertBack<'a> {
     #[allow(clippy::too_many_arguments)]
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        mptoken_issuance_id: Cow<'a, str>,
-        mpt_amount: Cow<'a, str>,
-        holder_encrypted_amount: Cow<'a, str>,
-        issuer_encrypted_amount: Cow<'a, str>,
-        blinding_factor: Cow<'a, str>,
-        balance_commitment: Cow<'a, str>,
-        zk_proof: Cow<'a, str>,
-        auditor_encrypted_amount: Option<Cow<'a, str>>,
+        #[builder(into)] mptoken_issuance_id: Cow<'a, str>,
+        #[builder(into)] mpt_amount: Cow<'a, str>,
+        #[builder(into)] holder_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] issuer_encrypted_amount: Cow<'a, str>,
+        #[builder(into)] blinding_factor: Cow<'a, str>,
+        #[builder(into)] balance_commitment: Cow<'a, str>,
+        #[builder(into)] zk_proof: Cow<'a, str>,
+        #[builder(into)] auditor_encrypted_amount: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::ConfidentialMPTConvertBack,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::ConfidentialMPTConvertBack)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             mptoken_issuance_id,
             mpt_amount,
             holder_encrypted_amount,
@@ -236,27 +234,17 @@ mod tests {
 
     #[test]
     fn test_new_builder_and_accessors() {
-        let mut tx = ConfidentialMPTConvertBack::new(
-            "rUserAccount11111111111111111111".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            "610F33".repeat(8).into(),
-            "500".into(),
-            "AD".repeat(66).into(),
-            "BC".repeat(66).into(),
-            "12".repeat(32).into(),
-            "03".repeat(33).into(),
-            "AB".repeat(816).into(),
-            None,
-        )
-        .with_fee(XRPAmount::from("15000"))
-        .with_sequence(9);
+        let mut tx = ConfidentialMPTConvertBack::builder("rUserAccount11111111111111111111")
+            .mptoken_issuance_id("610F33".repeat(8))
+            .mpt_amount("500")
+            .holder_encrypted_amount("AD".repeat(66))
+            .issuer_encrypted_amount("BC".repeat(66))
+            .blinding_factor("12".repeat(32))
+            .balance_commitment("03".repeat(33))
+            .zk_proof("AB".repeat(816))
+            .build()
+            .with_fee("15000")
+            .with_sequence(9);
 
         assert_eq!(tx.get_common_fields().sequence, Some(9));
         assert_eq!(tx.get_common_fields().fee, Some(XRPAmount::from("15000")));

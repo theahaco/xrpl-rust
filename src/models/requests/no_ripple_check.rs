@@ -65,13 +65,15 @@ impl<'a> Request<'a> for NoRippleCheck<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NoRippleCheck<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        role: NoRippleCheckRole,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] role: NoRippleCheckRole,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         limit: Option<u16>,
         transactions: Option<bool>,
     ) -> Self {
@@ -98,15 +100,13 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = NoRippleCheck::new(
-            Some("nrc-1".into()),
-            "rIssuer11111111111111111111111111".into(),
-            NoRippleCheckRole::Gateway,
-            None,
-            Some(LedgerIndex::Str("validated".into())),
-            Some(100),
-            Some(true),
-        );
+        let req = NoRippleCheck::builder("rIssuer11111111111111111111111111")
+            .id("nrc-1")
+            .role(NoRippleCheckRole::Gateway)
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .limit(100)
+            .transactions(true)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: NoRippleCheck = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

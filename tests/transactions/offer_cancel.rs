@@ -20,26 +20,14 @@ async fn test_offer_cancel_base() {
         let wallet = generate_funded_wallet().await;
 
         // Step 1: place an offer so we have a sequence number to cancel.
-        let mut create = OfferCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("100")),
-            Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
+        let mut create = OfferCreate::builder(wallet.classic_address.clone())
+            .taker_gets(Amount::XRPAmount(XRPAmount::from("100")))
+            .taker_pays(Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "USD".into(),
                 "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B".into(),
                 "10".into(),
-            )),
-            None,
-            None,
-        );
+            )))
+            .build();
 
         sign_and_submit(&mut create, client, &wallet, true, true)
             .await
@@ -53,18 +41,9 @@ async fn test_offer_cancel_base() {
             .sequence
             .expect("Sequence should be set after autofill");
 
-        let mut cancel = OfferCancel::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            offer_sequence,
-        );
+        let mut cancel = OfferCancel::builder(wallet.classic_address.clone())
+            .offer_sequence(offer_sequence)
+            .build();
 
         test_transaction(&mut cancel, &wallet).await;
     })

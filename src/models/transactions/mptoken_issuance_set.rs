@@ -672,7 +672,7 @@ mod tests {
         .with_mptoken_issuance_id("00000001A407AF5856CEFBF81F3D4A0000000000A407AF58".into())
         .with_holder(ACCOUNT_GENESIS.into())
         .with_flag(MPTokenIssuanceSetFlag::TfMPTLock)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(
             txn.mptoken_issuance_id.as_ref(),

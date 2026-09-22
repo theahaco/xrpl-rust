@@ -87,16 +87,18 @@ impl<'a> Request<'a> for Subscribe<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Subscribe<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        accounts: Option<Vec<Cow<'a, str>>>,
-        accounts_proposed: Option<Vec<Cow<'a, str>>>,
-        books: Option<Vec<SubscribeBook<'a>>>,
-        streams: Option<Vec<StreamParameter>>,
-        url: Option<Cow<'a, str>>,
-        url_password: Option<Cow<'a, str>>,
-        url_username: Option<Cow<'a, str>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] accounts: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] accounts_proposed: Option<Vec<Cow<'a, str>>>,
+        #[builder(into)] books: Option<Vec<SubscribeBook<'a>>>,
+        #[builder(into)] streams: Option<Vec<StreamParameter>>,
+        #[builder(into)] url: Option<Cow<'a, str>>,
+        #[builder(into)] url_password: Option<Cow<'a, str>>,
+        #[builder(into)] url_username: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -125,16 +127,12 @@ mod tests {
         // SubscribeBook uses asymmetric serialize/deserialize naming
         // (PascalCase vs snake_case), so a full round-trip with books does
         // not work. Round-trip the request without books.
-        let req = Subscribe::new(
-            Some("sub-1".into()),
-            Some(vec!["rAcc1111111111111111111111111111".into()]),
-            None,
-            None,
-            Some(vec![StreamParameter::Ledger, StreamParameter::Transactions]),
-            Some("https://example.test/cb".into()),
-            None,
-            None,
-        );
+        let req = Subscribe::builder()
+            .id("sub-1")
+            .accounts(vec!["rAcc1111111111111111111111111111".into()])
+            .streams(vec![StreamParameter::Ledger, StreamParameter::Transactions])
+            .url("https://example.test/cb")
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: Subscribe = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

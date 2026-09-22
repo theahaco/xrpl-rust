@@ -32,8 +32,13 @@ impl<'a> Request<'a> for NftSellOffers<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NftSellOffers<'a> {
-    pub fn new(id: Option<Cow<'a, str>>, nft_id: Cow<'a, str>) -> Self {
+    #[builder]
+    pub fn new(
+        #[builder(start_fn, into)] nft_id: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+    ) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::NFTSellOffers,
@@ -50,10 +55,11 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = NftSellOffers::new(
-            Some("nso-1".into()),
-            "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000".into(),
-        );
+        let req = NftSellOffers::builder(
+            "00080000B4F4AFC5FBCBD76873F18006173D2193467D3EE70000099B00000000",
+        )
+        .id("nso-1")
+        .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: NftSellOffers = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

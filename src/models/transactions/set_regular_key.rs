@@ -76,36 +76,34 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for SetRegularKey<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> SetRegularKey<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        regular_key: Option<Cow<'a, str>>,
+        #[builder(into)] regular_key: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::SetRegularKey,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::SetRegularKey)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             regular_key,
         }
     }
@@ -155,7 +153,7 @@ mod tests {
             ..Default::default()
         }
         .with_regular_key("rAR8rR8sUkBoCZFawhkWzY4Y5YoyuznwD".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -213,18 +211,12 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = SetRegularKey::new(
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
-            None,
-            Some("12".into()),
-            Some(8_000_000),
-            None,
-            Some(456),
-            None,
-            None,
-            None,
-            Some("rAR8rR8sUkBoCZFawhkWzY4Y5YoyuznwD".into()),
-        );
+        let txn = SetRegularKey::builder("rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn")
+            .fee("12")
+            .last_ledger_sequence(8_000_000)
+            .sequence(456)
+            .regular_key("rAR8rR8sUkBoCZFawhkWzY4Y5YoyuznwD")
+            .build();
         assert_eq!(txn.get_transaction_type(), &TransactionType::SetRegularKey);
         assert_eq!(txn.get_common_fields().sequence, Some(456));
         assert!(txn.get_errors().is_ok());

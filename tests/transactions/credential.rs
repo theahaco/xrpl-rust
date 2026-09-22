@@ -97,16 +97,7 @@ async fn test_credential_create_self_issued() {
 
         // Verify the Credential ledger object exists and lsfAccepted is set.
         let client = get_client().await;
-        let ao_req = AccountObjects::new(
-            None,
-            account.classic_address.clone().into(),
-            None,
-            None,
-            Some(AccountObjectType::Credential),
-            None,
-            None,
-            None,
-        );
+        let ao_req = AccountObjects::builder(account.classic_address.clone()).r#type(AccountObjectType::Credential).build();
         let ao_resp = client
             .request(ao_req.into())
             .await
@@ -224,16 +215,9 @@ async fn test_credential_lsf_accepted_set_after_accept() {
 
         // Before accept: lsfAccepted should NOT be set.
         let client = get_client().await;
-        let ao_req = AccountObjects::new(
-            None,
-            subject.classic_address.clone().into(),
-            None,
-            None,
-            Some(AccountObjectType::Credential),
-            None,
-            None,
-            None,
-        );
+        let ao_req = AccountObjects::builder(subject.classic_address.clone())
+            .r#type(AccountObjectType::Credential)
+            .build();
         let ao_resp = client
             .request(ao_req.into())
             .await
@@ -267,16 +251,9 @@ async fn test_credential_lsf_accepted_set_after_accept() {
         test_transaction(&mut accept, &subject).await;
 
         // After accept: lsfAccepted must be set.
-        let ao_req2 = AccountObjects::new(
-            None,
-            subject.classic_address.clone().into(),
-            None,
-            None,
-            Some(AccountObjectType::Credential),
-            None,
-            None,
-            None,
-        );
+        let ao_req2 = AccountObjects::builder(subject.classic_address.clone())
+            .r#type(AccountObjectType::Credential)
+            .build();
         let ao_resp2 = client
             .request(ao_req2.into())
             .await
@@ -425,17 +402,10 @@ async fn test_credential_create_with_uri() {
         // Verify URI is stored on the ledger object.
         let ao_resp = client
             .request(
-                AccountObjects::new(
-                    None,
-                    subject.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::Credential),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(subject.classic_address.clone())
+                    .r#type(AccountObjectType::Credential)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");

@@ -42,39 +42,37 @@ impl<'a> Transaction<'a, NoFlags> for XChainCommit<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> XChainCommit<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        xchain_bridge: XChainBridge<'a>,
-        xchain_claim_id: Cow<'a, str>,
-        other_chain_destination: Option<Cow<'a, str>>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] xchain_bridge: XChainBridge<'a>,
+        #[builder(into)] xchain_claim_id: Cow<'a, str>,
+        #[builder(into)] other_chain_destination: Option<Cow<'a, str>>,
     ) -> XChainCommit<'a> {
         XChainCommit {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::XChainCommit,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::XChainCommit)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             other_chain_destination,
             xchain_bridge,
@@ -141,21 +139,14 @@ mod tests {
 
     #[test]
     fn test_constructor_round_trip() {
-        let txn = XChainCommit::new(
-            "rMTi57fNy2UkUb4RcdoUeJm7gjxVQvxzUo".into(),
-            None,
-            Some(XRPAmount::from("10")),
-            None,
-            None,
-            Some(1),
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000")),
-            xrp_bridge(),
-            "13f".into(),
-            Some("rDest11111111111111111111111111111".into()),
-        );
+        let txn = XChainCommit::builder("rMTi57fNy2UkUb4RcdoUeJm7gjxVQvxzUo")
+            .fee(XRPAmount::from("10"))
+            .sequence(1)
+            .amount(Amount::XRPAmount(XRPAmount::from("10000")))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id("13f")
+            .other_chain_destination("rDest11111111111111111111111111111")
+            .build();
         let serialized = serde_json::to_string(&txn).unwrap();
         let deserialized: XChainCommit = serde_json::from_str(&serialized).unwrap();
         let reserialized = serde_json::to_string(&deserialized).unwrap();
@@ -169,21 +160,11 @@ mod tests {
 
     #[test]
     fn test_validate_currencies_ok() {
-        let txn = XChainCommit::new(
-            "rMTi57fNy2UkUb4RcdoUeJm7gjxVQvxzUo".into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("10000")),
-            xrp_bridge(),
-            "1".into(),
-            None,
-        );
+        let txn = XChainCommit::builder("rMTi57fNy2UkUb4RcdoUeJm7gjxVQvxzUo")
+            .amount(Amount::XRPAmount(XRPAmount::from("10000")))
+            .xchain_bridge(xrp_bridge())
+            .xchain_claim_id("1")
+            .build();
         assert!(txn.get_errors().is_ok());
     }
 }

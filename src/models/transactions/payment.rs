@@ -212,43 +212,41 @@ impl<'a> PaymentError for Payment<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Payment<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<PaymentFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<PaymentFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        destination: Cow<'a, str>,
-        deliver_min: Option<Amount<'a>>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] destination: Cow<'a, str>,
+        #[builder(into)] deliver_min: Option<Amount<'a>>,
         destination_tag: Option<u32>,
         invoice_id: Option<u32>,
-        paths: Option<Vec<Vec<PathStep<'a>>>>,
-        send_max: Option<Amount<'a>>,
+        #[builder(into)] paths: Option<Vec<Vec<PathStep<'a>>>>,
+        #[builder(into)] send_max: Option<Amount<'a>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::Payment,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::Payment)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             amount,
             destination,
             destination_tag,
@@ -534,7 +532,7 @@ mod tests {
         .with_destination_tag(12345)
         .with_send_max(Amount::XRPAmount("1100000".into()))
         .with_flag(PaymentFlag::TfPartialPayment)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(2)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(54321);
@@ -566,7 +564,7 @@ mod tests {
         }
         .with_send_max(Amount::XRPAmount("110000000".into())) // 110 XRP max
         .with_destination_tag(987654)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(payment.send_max.is_some());
         assert_eq!(payment.destination_tag, Some(987654));
@@ -588,7 +586,7 @@ mod tests {
         .with_send_max(Amount::XRPAmount("1100000".into()))
         .with_deliver_min(Amount::XRPAmount("900000".into()))
         .with_flag(PaymentFlag::TfPartialPayment)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(payment.has_flag(&PaymentFlag::TfPartialPayment));
         assert!(payment.send_max.is_some());
@@ -624,7 +622,7 @@ mod tests {
         .add_path(path1)
         .add_path(path2)
         .with_send_max(Amount::XRPAmount("110000000".into()))
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(payment.paths.as_ref().unwrap().len(), 2);
         assert!(payment.validate().is_ok());

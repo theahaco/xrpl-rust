@@ -82,38 +82,36 @@ fn is_hex(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+#[bon::bon]
 impl<'a> DIDSet<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        data: Option<Cow<'a, str>>,
-        did_document: Option<Cow<'a, str>>,
-        uri: Option<Cow<'a, str>>,
+        #[builder(into)] data: Option<Cow<'a, str>>,
+        #[builder(into)] did_document: Option<Cow<'a, str>>,
+        #[builder(into)] uri: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::DIDSet,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::DIDSet)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             data,
             did_document,
             uri,
@@ -416,7 +414,7 @@ mod tests {
             did_document: Some("646F63".into()),
             uri: Some("6469645F6578616D706C65".into()),
         }
-        .with_fee("10".into())
+        .with_fee("10")
         .with_sequence(391)
         .with_last_ledger_sequence(7108682);
 

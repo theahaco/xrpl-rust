@@ -169,41 +169,39 @@ impl<'a> NFTokenCreateOfferError for NFTokenCreateOffer<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> NFTokenCreateOffer<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<NFTokenCreateOfferFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<NFTokenCreateOfferFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        amount: Amount<'a>,
-        nftoken_id: Cow<'a, str>,
-        destination: Option<Cow<'a, str>>,
+        #[builder(into)] amount: Amount<'a>,
+        #[builder(into)] nftoken_id: Cow<'a, str>,
+        #[builder(into)] destination: Option<Cow<'a, str>>,
         expiration: Option<u32>,
-        owner: Option<Cow<'a, str>>,
+        #[builder(into)] owner: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::NFTokenCreateOffer,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::NFTokenCreateOffer)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             nftoken_id,
             amount,
             owner,
@@ -396,7 +394,7 @@ mod tests {
         .with_owner("rSellerAccount456".into()) // Required for buy offers
         .with_expiration(1672531200)
         .with_destination("rBuyerAccount123".into()) // Private offer
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -439,7 +437,7 @@ mod tests {
         }
         .with_flag(NFTokenCreateOfferFlag::TfSellOffer)
         .with_expiration(1672531200)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(456);
 
         assert!(sell_offer.has_flag(&NFTokenCreateOfferFlag::TfSellOffer));
@@ -463,7 +461,7 @@ mod tests {
         }
         .with_flag(NFTokenCreateOfferFlag::TfSellOffer) // Sell for 0 XRP
         .with_destination("rRecipientAccount999".into()) // Only this account can accept
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(789);
 
         assert!(free_offer.has_flag(&NFTokenCreateOfferFlag::TfSellOffer));
@@ -489,7 +487,7 @@ mod tests {
         }
         .with_owner("rNFTOwner222".into())
         .with_ticket_sequence(12345)
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_offer.common_fields.ticket_sequence, Some(12345));
         assert_eq!(ticket_offer.owner.as_ref().unwrap(), "rNFTOwner222");

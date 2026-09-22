@@ -73,37 +73,35 @@ impl<'a> CommonTransactionBuilder<'a, NoFlags> for EscrowCancel<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> EscrowCancel<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        owner: Cow<'a, str>,
+        #[builder(into)] owner: Cow<'a, str>,
         offer_sequence: u32,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::EscrowCancel,
-                account_txn_id,
-                fee,
-                Some(FlagCollection::default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::EscrowCancel)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(FlagCollection::default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             owner,
             offer_sequence,
         }
@@ -149,7 +147,7 @@ mod tests {
             owner: "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
             offer_sequence: 7,
         }
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345);
@@ -191,19 +189,13 @@ mod tests {
 
     #[test]
     fn test_new_constructor_and_trait_impls() {
-        let txn = EscrowCancel::new(
-            "rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn".into(),
-            None,
-            Some("12".into()),
-            Some(8_000_000),
-            None,
-            Some(456),
-            None,
-            None,
-            None,
-            "rOwner".into(),
-            7,
-        );
+        let txn = EscrowCancel::builder("rf1BiGeXwwQoi8Z2ueFYTEXSwuJYfV2Jpn")
+            .fee("12")
+            .last_ledger_sequence(8_000_000)
+            .sequence(456)
+            .owner("rOwner")
+            .offer_sequence(7)
+            .build();
         assert_eq!(txn.get_transaction_type(), &TransactionType::EscrowCancel);
         assert_eq!(txn.get_common_fields().sequence, Some(456));
         assert!(txn.get_errors().is_ok());

@@ -27,14 +27,10 @@ async fn test_ledger_entry_base() {
         let client = crate::common::get_client().await;
 
         // First, get a valid entry index from ledger_data
-        let data_request = LedgerDataRequest::new(
-            None,                                       // id
-            None,                                       // binary
-            None,                                       // ledger_hash
-            Some(LedgerIndex::Str("validated".into())), // ledger_index
-            Some(1),                                    // limit
-            None,                                       // marker
-        );
+        let data_request = LedgerDataRequest::builder()
+            .ledger_index(LedgerIndex::Str("validated".into()))
+            .limit(1)
+            .build();
 
         let data_response = client
             .request(data_request.into())

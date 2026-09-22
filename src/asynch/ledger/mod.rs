@@ -14,21 +14,7 @@ pub async fn get_latest_validated_ledger_sequence(
     client: &impl XRPLAsyncClient,
 ) -> XRPLHelperResult<u32> {
     let ledger_response = client
-        .request(
-            Ledger::new(
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                Some("validated".into()),
-                None,
-                None,
-                None,
-            )
-            .into(),
-        )
+        .request(Ledger::builder().ledger_index("validated").build().into())
         .await?;
     let ledger_result: results::ledger::Ledger = ledger_response.try_into()?;
 
@@ -38,7 +24,9 @@ pub async fn get_latest_validated_ledger_sequence(
 pub async fn get_latest_open_ledger_sequence(
     client: &impl XRPLAsyncClient,
 ) -> XRPLHelperResult<u32> {
-    let response = client.request(LedgerCurrent::new(None).into()).await?;
+    let response = client
+        .request(LedgerCurrent::builder().build().into())
+        .await?;
     let result: results::ledger_current::LedgerCurrent = response.try_into()?;
     Ok(result.ledger_current_index)
 }
@@ -54,7 +42,7 @@ pub async fn get_fee(
     max_fee: Option<u32>,
     fee_type: Option<FeeType>,
 ) -> XRPLHelperResult<XRPAmount<'_>> {
-    let fee_request = Fee::new(None);
+    let fee_request = Fee::builder().build();
     let response = client.request(fee_request.into()).await?;
     let result: results::fee::Fee = response.try_into()?;
     let drops = result.drops;

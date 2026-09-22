@@ -11,7 +11,7 @@ async fn test_fee_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(FeeRequest::new(None).into())
+            .request(FeeRequest::builder().build().into())
             .await
             .expect("fee request failed");
 

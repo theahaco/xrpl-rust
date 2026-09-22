@@ -17,7 +17,9 @@ async fn test_generic_request_ledger_accept() {
     with_blockchain_lock(|| async {
         let client = crate::common::get_client().await;
 
-        let request = GenericRequest::new("ledger_accept", None, Map::new());
+        let request = GenericRequest::builder("ledger_accept")
+            .params(Map::new())
+            .build();
         let response = client
             .request(request.into())
             .await
@@ -51,7 +53,10 @@ async fn test_generic_request_server_state_with_params() {
         // to exercise the params-flattening path.
         let mut params = Map::new();
         params.insert("ledger_index".into(), Value::String("validated".into()));
-        let request = GenericRequest::new("server_state", Some("gr-1".into()), params);
+        let request = GenericRequest::builder("server_state")
+            .id("gr-1")
+            .params(params)
+            .build();
 
         let response = client
             .request(request.into())

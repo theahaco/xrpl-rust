@@ -8,7 +8,6 @@
 // When no Destination is in the attestation, rippled does NOT auto-deliver on quorum;
 // the claimant must submit XChainClaim to specify the destination.
 //
-// NOTE: XChainClaim has NO flags; standard 9 common-field order.
 // xchain_claim_id is Cow<str>.
 
 use crate::common::xchain::setup_bridge;
@@ -57,20 +56,11 @@ async fn test_xchain_claim_base() {
         let other_wallet = Wallet::new(&other_seed, 0).expect("wallet");
 
         // Step 1: XChainCreateClaimID — destination reserves claim ID 1
-        let mut claim_id_tx = XChainCreateClaimID::new(
-            destination.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            other_wallet.classic_address.clone().into(),
-            XRPAmount::from(bridge_setup.signature_reward.as_str()),
-            bridge_setup.bridge(),
-        );
+        let mut claim_id_tx = XChainCreateClaimID::builder(destination.classic_address.clone())
+            .other_chain_source(other_wallet.classic_address.clone())
+            .signature_reward(XRPAmount::from(bridge_setup.signature_reward.as_str()))
+            .xchain_bridge(bridge_setup.bridge())
+            .build();
         sign_and_submit(&mut claim_id_tx, client, &destination, true, true)
             .await
             .expect("XChainCreateClaimID failed");
@@ -98,27 +88,18 @@ async fn test_xchain_claim_base() {
             .expect("sign attestation failed");
 
         // Step 3: XChainAddClaimAttestation — witness submits (no Destination)
-        let mut attest_tx = XChainAddClaimAttestation::new(
-            bridge_setup.witness_wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from(amount_drops)),
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_reward_account
-            bridge_setup.witness_wallet.classic_address.clone().into(), // attestation_signer_account
-            other_wallet.classic_address.clone().into(),                // other_chain_source
-            bridge_setup.witness_wallet.public_key.clone().into(),      // public_key
-            attestation_sig.into(),                                     // signature
-            0,                                                          // was_locking_chain_send
-            bridge_setup.bridge(),
-            "1".into(), // xchain_claim_id
-            None,       // no destination — claim ID stays alive for XChainClaim
-        );
+        let mut attest_tx =
+            XChainAddClaimAttestation::builder(bridge_setup.witness_wallet.classic_address.clone())
+                .amount(Amount::XRPAmount(XRPAmount::from(amount_drops)))
+                .attestation_reward_account(bridge_setup.witness_wallet.classic_address.clone())
+                .attestation_signer_account(bridge_setup.witness_wallet.classic_address.clone())
+                .other_chain_source(other_wallet.classic_address.clone())
+                .public_key(bridge_setup.witness_wallet.public_key.clone())
+                .signature(attestation_sig)
+                .was_locking_chain_send(0)
+                .xchain_bridge(bridge_setup.bridge())
+                .xchain_claim_id("1")
+                .build();
         sign_and_submit(
             &mut attest_tx,
             client,
@@ -132,22 +113,12 @@ async fn test_xchain_claim_base() {
         ledger_accept().await;
 
         // Step 4: XChainClaim — destination explicitly claims the 10 XRP
-        let mut claim_tx = XChainClaim::new(
-            destination.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from(amount_drops)), // amount
-            destination.classic_address.clone().into(),       // destination
-            bridge_setup.bridge(),
-            "1".into(), // xchain_claim_id
-            None,       // destination_tag
-        );
+        let mut claim_tx = XChainClaim::builder(destination.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from(amount_drops)))
+            .destination(destination.classic_address.clone())
+            .xchain_bridge(bridge_setup.bridge())
+            .xchain_claim_id("1")
+            .build();
 
         test_transaction(&mut claim_tx, &destination).await;
     })

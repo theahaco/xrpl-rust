@@ -127,41 +127,39 @@ impl<'a> CommonTransactionBuilder<'a, PaymentChannelClaimFlag> for PaymentChanne
     }
 }
 
+#[bon::bon]
 impl<'a> PaymentChannelClaim<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<PaymentChannelClaimFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<PaymentChannelClaimFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        channel: Cow<'a, str>,
-        amount: Option<Cow<'a, str>>,
-        balance: Option<Cow<'a, str>>,
-        public_key: Option<Cow<'a, str>>,
-        signature: Option<Cow<'a, str>>,
+        #[builder(into)] channel: Cow<'a, str>,
+        #[builder(into)] amount: Option<Cow<'a, str>>,
+        #[builder(into)] balance: Option<Cow<'a, str>>,
+        #[builder(into)] public_key: Option<Cow<'a, str>>,
+        #[builder(into)] signature: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::PaymentChannelClaim,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::PaymentChannelClaim)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             channel,
             balance,
             amount,
@@ -265,7 +263,7 @@ mod tests {
         .with_amount("1000000".into())
         .with_signature("30440220718D264EF05CAED7C781FF6DE298DCAC68D002562C9BF3A07C1E721B420C0DAB02203A5A4779EF4D2CCC7BC3EF886676D803A9981B928D3B8ACA483B80ECA3CD7B9B".into())
         .with_public_key("32D2471DB72B27E3310F355BB33E339BF26F8392D5A93D3BC0FC3B566612DA0F0A".into())
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123)
         .with_last_ledger_sequence(7108682)
         .with_source_tag(12345)
@@ -316,7 +314,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(PaymentChannelClaimFlag::TfClose)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123);
 
         assert!(close_claim.has_flag(&PaymentChannelClaimFlag::TfClose));
@@ -338,7 +336,7 @@ mod tests {
             ..Default::default()
         }
         .with_flag(PaymentChannelClaimFlag::TfRenew)
-        .with_fee("12".into())
+        .with_fee("12")
         .with_sequence(123);
 
         assert!(renew_claim.has_flag(&PaymentChannelClaimFlag::TfRenew));
@@ -414,7 +412,7 @@ mod tests {
             PaymentChannelClaimFlag::TfRenew,
             PaymentChannelClaimFlag::TfClose,
         ])
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert!(multi_flag_claim.has_flag(&PaymentChannelClaimFlag::TfRenew));
         assert!(multi_flag_claim.has_flag(&PaymentChannelClaimFlag::TfClose));
@@ -434,7 +432,7 @@ mod tests {
         .with_ticket_sequence(456)
         .with_balance("500000".into())
         .with_amount("500000".into())
-        .with_fee("12".into());
+        .with_fee("12");
 
         assert_eq!(ticket_claim.common_fields.ticket_sequence, Some(456));
         assert_eq!(ticket_claim.balance.as_ref().unwrap(), "500000");

@@ -17,25 +17,10 @@ async fn test_payment_base() {
         let sender = generate_funded_wallet().await;
         let recipient = Wallet::create(None).expect("Failed to create recipient wallet");
 
-        let mut tx = Payment::new(
-            sender.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("20000000")), // 20 XRP — must cover the 20 XRP base reserve in standalone mode
-            recipient.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let mut tx = Payment::builder(sender.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from("20000000")))
+            .destination(recipient.classic_address.clone())
+            .build();
 
         test_transaction(&mut tx, &sender).await;
     })

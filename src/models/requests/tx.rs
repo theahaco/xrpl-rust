@@ -46,13 +46,15 @@ impl<'a> Request<'a> for Tx<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> Tx<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
         binary: Option<bool>,
         max_ledger: Option<u32>,
         min_ledger: Option<u32>,
-        transaction: Option<Cow<'a, str>>,
+        #[builder(into)] transaction: Option<Cow<'a, str>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {

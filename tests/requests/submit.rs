@@ -18,25 +18,10 @@ async fn test_submit_base() {
         let destination = crate::common::generate_funded_wallet().await;
 
         // Build and sign a payment
-        let mut payment = Payment::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // flags
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            Amount::XRPAmount(XRPAmount::from("1000000")),
-            destination.classic_address.clone().into(),
-            None, // destination_tag
-            None, // invoice_id
-            None, // paths
-            None, // send_max
-            None, // deliver_min
-        );
+        let mut payment = Payment::builder(wallet.classic_address.clone())
+            .amount(Amount::XRPAmount(XRPAmount::from("1000000")))
+            .destination(destination.classic_address.clone())
+            .build();
 
         // Autofill sequence, fee, etc.
         xrpl::asynch::transaction::autofill_and_sign(&mut payment, client, &wallet, true)
@@ -45,7 +30,7 @@ async fn test_submit_base() {
 
         // Encode to blob and submit
         let tx_blob = encode(&payment).expect("encode failed");
-        let request = SubmitRequest::new(None, tx_blob.into(), None);
+        let request = SubmitRequest::builder(tx_blob).build();
 
         let response = client
             .request(request.into())

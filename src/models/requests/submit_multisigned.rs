@@ -41,10 +41,12 @@ impl<'a> Request<'a> for SubmitMultisigned<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> SubmitMultisigned<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        tx_json: serde_json::Value,
+        #[builder(start_fn, into)] tx_json: serde_json::Value,
+        #[builder(into)] id: Option<Cow<'a, str>>,
         fail_hard: Option<bool>,
     ) -> Self {
         Self {
@@ -68,7 +70,10 @@ mod tests {
             "TransactionType": "Payment",
             "Account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
         });
-        let req = SubmitMultisigned::new(Some("sm-1".into()), tx_json, Some(false));
+        let req = SubmitMultisigned::builder(tx_json)
+            .id("sm-1")
+            .fail_hard(false)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: SubmitMultisigned = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

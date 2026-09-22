@@ -55,7 +55,7 @@ mod tests {
             let vault_owner = generate_funded_wallet().await;
             let (vault_id, _) = create_xrp_vault(&vault_owner).await;
 
-            let req = VaultInfo::new(None, vault_id.as_str().into(), None, None);
+            let req = VaultInfo::builder(vault_id.as_str()).build();
             let client = get_client().await;
             let resp = client
                 .request(req.into())
@@ -139,7 +139,7 @@ mod tests {
             let vault_owner = generate_funded_wallet().await;
             let (vault_id, _) = create_xrp_vault(&vault_owner).await;
 
-            let req = VaultInfo::new(None, vault_id.as_str().into(), None, None);
+            let req = VaultInfo::builder(vault_id.as_str()).build();
             let client = get_client().await;
             let resp = client
                 .request(req.into())
@@ -219,7 +219,7 @@ mod tests {
                 crate::common::vault::get_vault_id_and_seq(vault_owner.classic_address.as_str())
                     .await;
 
-            let req = VaultInfo::new(None, vault_id.as_str().into(), None, None);
+            let req = VaultInfo::builder(vault_id.as_str()).build();
             let client = get_client().await;
             let resp = client
                 .request(req.into())

@@ -130,42 +130,40 @@ impl<'a> Default for AMMDeposit<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AMMDeposit<'a> {
+    #[builder]
     pub fn new(
-        account: Cow<'a, str>,
-        account_txn_id: Option<Cow<'a, str>>,
-        fee: Option<XRPAmount<'a>>,
-        flags: Option<FlagCollection<AMMDepositFlag>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] account_txn_id: Option<Cow<'a, str>>,
+        #[builder(into)] fee: Option<XRPAmount<'a>>,
+        #[builder(into)] flags: Option<FlagCollection<AMMDepositFlag>>,
         last_ledger_sequence: Option<u32>,
-        memos: Option<Vec<Memo>>,
+        #[builder(into)] memos: Option<Vec<Memo>>,
         sequence: Option<u32>,
-        signers: Option<Vec<Signer>>,
+        #[builder(into)] signers: Option<Vec<Signer>>,
         source_tag: Option<u32>,
         ticket_sequence: Option<u32>,
-        asset: Currency<'a>,
-        asset2: Currency<'a>,
-        amount: Option<Amount<'a>>,
-        amount2: Option<Amount<'a>>,
-        e_price: Option<Amount<'a>>,
-        lp_token_out: Option<IssuedCurrencyAmount<'a>>,
+        #[builder(into)] asset: Currency<'a>,
+        #[builder(into)] asset2: Currency<'a>,
+        #[builder(into)] amount: Option<Amount<'a>>,
+        #[builder(into)] amount2: Option<Amount<'a>>,
+        #[builder(into)] e_price: Option<Amount<'a>>,
+        #[builder(into)] lp_token_out: Option<IssuedCurrencyAmount<'a>>,
     ) -> AMMDeposit<'a> {
         AMMDeposit {
-            common_fields: CommonFields::new(
-                account,
-                TransactionType::AMMDeposit,
-                account_txn_id,
-                fee,
-                Some(flags.unwrap_or_default()),
-                last_ledger_sequence,
-                memos,
-                None,
-                sequence,
-                signers,
-                None,
-                source_tag,
-                ticket_sequence,
-                None,
-            ),
+            common_fields: CommonFields::builder(account)
+                .transaction_type(TransactionType::AMMDeposit)
+                .maybe_account_txn_id(account_txn_id)
+                .maybe_fee(fee)
+                .flags(flags.unwrap_or_default())
+                .maybe_last_ledger_sequence(last_ledger_sequence)
+                .maybe_memos(memos)
+                .maybe_sequence(sequence)
+                .maybe_signers(signers)
+                .maybe_source_tag(source_tag)
+                .maybe_ticket_sequence(ticket_sequence)
+                .build(),
             asset,
             asset2,
             amount,
@@ -270,7 +268,7 @@ mod tests {
             "1000".into(),
         )))
         .with_flag(AMMDepositFlag::TfTwoAsset)
-        .with_fee("12".into()) // From CommonTransactionBuilder trait
+        .with_fee("12") // From CommonTransactionBuilder trait
         .with_sequence(123) // From CommonTransactionBuilder trait
         .with_last_ledger_sequence(7108682) // From CommonTransactionBuilder trait
         .with_source_tag(12345); // From CommonTransactionBuilder trait

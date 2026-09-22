@@ -17,26 +17,12 @@ mod test {
         let wallet = Wallet::new("sEdSkooMk31MeTjbHVE7vLvgCpEMAdB", 0).unwrap();
         let first_signer = Wallet::new("sEdTLQkHAWpdS7FDk7EvuS7Mz8aSMRh", 0).unwrap();
         let second_signer = Wallet::new("sEd7DXaHkGQD8mz8xcRLDxfMLqCurif", 0).unwrap();
-        let mut account_set_txn = AccountSet::new(
-            Cow::from(wallet.classic_address.clone()),
-            None,
-            Some("40".into()),
-            None,
-            Some(4814775),
-            None,
-            Some(4814738),
-            None,
-            None,
-            None,
-            None,
-            Some("6578616d706c652e636f6d".into()), // "example.com"
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-        );
+        let mut account_set_txn = AccountSet::builder(Cow::from(wallet.classic_address.clone()))
+            .fee("40")
+            .last_ledger_sequence(4814775)
+            .sequence(4814738)
+            .domain("6578616d706c652e636f6d")
+            .build();
         let mut tx_1 = account_set_txn.clone();
         sign(&mut tx_1, &first_signer, true).unwrap();
         let tx_1_expected_signature = "E3BEF86AEFC61E5ED66C95D0C5CE699721A8DAF86B6ED0D1CBAC86C2C03D96A098767B4F163FADBD937A99AC40BD6CED16B2CA98B198C2343D4BA31ECE57530C";

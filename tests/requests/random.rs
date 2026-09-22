@@ -13,7 +13,7 @@ async fn test_random_base() {
         let client = crate::common::get_client().await;
 
         let response = client
-            .request(RandomRequest::new(None).into())
+            .request(RandomRequest::builder().build().into())
             .await
             .expect("random request failed");
 

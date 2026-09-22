@@ -62,18 +62,20 @@ impl<'a> Request<'a> for AccountTx<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> AccountTx<'a> {
+    #[builder]
     pub fn new(
-        id: Option<Cow<'a, str>>,
-        account: Cow<'a, str>,
-        ledger_hash: Option<Cow<'a, str>>,
-        ledger_index: Option<LedgerIndex<'a>>,
+        #[builder(start_fn, into)] account: Cow<'a, str>,
+        #[builder(into)] id: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_hash: Option<Cow<'a, str>>,
+        #[builder(into)] ledger_index: Option<LedgerIndex<'a>>,
         binary: Option<bool>,
         forward: Option<bool>,
         ledger_index_min: Option<u32>,
         ledger_index_max: Option<u32>,
         limit: Option<u16>,
-        marker: Option<Marker<'a>>,
+        #[builder(into)] marker: Option<Marker<'a>>,
     ) -> Self {
         Self {
             common_fields: CommonFields {
@@ -101,18 +103,14 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = AccountTx::new(
-            Some("atx-1".into()),
-            "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into(),
-            None,
-            None,
-            Some(false),
-            Some(true),
-            Some(1),
-            Some(99999),
-            Some(25),
-            None,
-        );
+        let req = AccountTx::builder("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh")
+            .id("atx-1")
+            .binary(false)
+            .forward(true)
+            .ledger_index_min(1)
+            .ledger_index_max(99999)
+            .limit(25)
+            .build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: AccountTx = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

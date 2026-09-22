@@ -16,26 +16,14 @@ async fn test_offer_create_base() {
         let wallet = generate_funded_wallet().await;
         let issuer = generate_funded_wallet().await;
 
-        let mut tx = OfferCreate::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Amount::XRPAmount(XRPAmount::from("100")), // taker_pays: 100 XRP drops
-            Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
+        let mut tx = OfferCreate::builder(wallet.classic_address.clone())
+            .taker_gets(Amount::XRPAmount(XRPAmount::from("100")))
+            .taker_pays(Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "USD".into(),
-                issuer.classic_address.clone().into(), // locally funded issuer
+                issuer.classic_address.clone().into(),
                 "10".into(),
-            )),
-            None,
-            None,
-        );
+            )))
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
     })

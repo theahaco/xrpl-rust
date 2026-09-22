@@ -32,8 +32,10 @@ impl<'a> Request<'a> for LedgerCurrent<'a> {
     }
 }
 
+#[bon::bon]
 impl<'a> LedgerCurrent<'a> {
-    pub fn new(id: Option<Cow<'a, str>>) -> Self {
+    #[builder]
+    pub fn new(#[builder(into)] id: Option<Cow<'a, str>>) -> Self {
         Self {
             common_fields: CommonFields {
                 command: RequestMethod::LedgerCurrent,
@@ -49,7 +51,7 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let req = LedgerCurrent::new(Some("lcur-1".into()));
+        let req = LedgerCurrent::builder().id("lcur-1").build();
         let serialized = serde_json::to_string(&req).unwrap();
         let deserialized: LedgerCurrent = serde_json::from_str(&serialized).unwrap();
         assert_eq!(req, deserialized);

@@ -14,15 +14,13 @@ async fn test_amm_info_base() {
         let client = crate::common::get_client().await;
         let pool = crate::common::amm::setup_amm_pool().await;
 
-        let request = AMMInfoRequest::new(
-            None, // id
-            None, // amm_account
-            Some(Currency::XRP(XRP::new())),
-            Some(Currency::IssuedCurrency(IssuedCurrency::new(
+        let request = AMMInfoRequest::builder()
+            .asset(Currency::XRP(XRP::new()))
+            .asset2(Currency::IssuedCurrency(IssuedCurrency::new(
                 "USD".into(),
                 pool.issuer_wallet.classic_address.clone().into(),
-            ))),
-        );
+            )))
+            .build();
 
         let response = client
             .request(request.into())

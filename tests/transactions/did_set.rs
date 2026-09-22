@@ -25,20 +25,11 @@ async fn test_did_set_all_fields() {
     with_blockchain_lock(|| async {
         let wallet = generate_funded_wallet().await;
 
-        let mut tx = DIDSet::new(
-            wallet.classic_address.clone().into(),
-            None, // account_txn_id
-            None, // fee
-            None, // last_ledger_sequence
-            None, // memos
-            None, // sequence
-            None, // signers
-            None, // source_tag
-            None, // ticket_sequence
-            Some(DATA_HEX.into()),
-            Some(DID_DOCUMENT_HEX.into()),
-            Some(URI_HEX.into()),
-        );
+        let mut tx = DIDSet::builder(wallet.classic_address.clone())
+            .data(DATA_HEX)
+            .did_document(DID_DOCUMENT_HEX)
+            .uri(URI_HEX)
+            .build();
 
         test_transaction(&mut tx, &wallet).await;
 
@@ -46,17 +37,10 @@ async fn test_did_set_all_fields() {
         let client = get_client().await;
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::DID),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::DID)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");
@@ -85,55 +69,29 @@ async fn test_did_set_update() {
         let wallet = generate_funded_wallet().await;
 
         // Step 1: Create DID with all fields
-        let mut create_tx = DIDSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            Some(DATA_HEX.into()),
-            Some(DID_DOCUMENT_HEX.into()),
-            Some(URI_HEX.into()),
-        );
+        let mut create_tx = DIDSet::builder(wallet.classic_address.clone())
+            .data(DATA_HEX)
+            .did_document(DID_DOCUMENT_HEX)
+            .uri(URI_HEX)
+            .build();
         test_transaction(&mut create_tx, &wallet).await;
 
         // Step 2: Update DID — change URI, clear DIDDocument, leave Data unchanged
         let new_uri = "ABCD";
-        let mut update_tx = DIDSet::new(
-            wallet.classic_address.clone().into(),
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,
-            None,                 // data: omit to leave unchanged
-            Some("".into()),      // did_document: empty string to delete
-            Some(new_uri.into()), // uri: update value
-        );
+        let mut update_tx = DIDSet::builder(wallet.classic_address.clone())
+            .did_document("")
+            .uri(new_uri)
+            .build();
         test_transaction(&mut update_tx, &wallet).await;
 
         // Step 3: Verify the update
         let client = get_client().await;
         let ao_response = client
             .request(
-                AccountObjects::new(
-                    None,
-                    wallet.classic_address.clone().into(),
-                    None,
-                    None,
-                    Some(AccountObjectType::DID),
-                    None,
-                    None,
-                    None,
-                )
-                .into(),
+                AccountObjects::builder(wallet.classic_address.clone())
+                    .r#type(AccountObjectType::DID)
+                    .build()
+                    .into(),
             )
             .await
             .expect("account_objects request failed");
