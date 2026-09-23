@@ -2,10 +2,11 @@ on:
   push:
     branches:
       - main
+  # No branch filter: a stacked pull request targets the branch below it, not
+  # `main`, so a filtered trigger means every PR in a stack runs no checks at
+  # all until the bottom of the stack merges. Breakage then surfaces all at
+  # once, in the one PR that finally targets `main`.
   pull_request:
-    branches:
-      - main
-      - dev
 
 name: Integration Test
 
@@ -81,6 +82,9 @@ jobs:
     timeout-minutes: 30
     env:
       XRPLD_DOCKER_IMAGE: ${{ needs.resolve_xrpld_image.outputs.image }}
+      # Lifted to the job so the Codecov step's `if` can test it: the `secrets`
+      # context is not available in a step-level `if`, only `env` is.
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
     steps:
       - uses: actions/checkout@v7
@@ -167,7 +171,9 @@ jobs:
             --lcov --output-path lcov.info \
             --ignore-filename-regex '${{ env.COVERAGE_IGNORE_REGEX }}'
 
+      # Skipped when no token is configured — see the note in unit_test.yml.
       - name: Upload coverage to Codecov
+        if: ${{ env.CODECOV_TOKEN != '' }}
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

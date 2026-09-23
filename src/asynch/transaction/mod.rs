@@ -39,9 +39,14 @@ use strum::IntoEnumIterator;
 use super::exceptions::XRPLHelperResult;
 
 const OWNER_RESERVE: &str = "2000000"; // 2 XRP
-const RESTRICTED_NETWORKS: u16 = 1024;
-const REQUIRED_NETWORKID_VERSION: &str = "1.11.0";
-const LEDGER_OFFSET: u8 = 20;
+/// Network IDs at or below this are omitted from a transaction's `NetworkID`;
+/// anything above it must carry one. Getting this wrong is a cross-chain replay
+/// bug, so it is public: a caller building transactions offline needs the rule.
+pub const RESTRICTED_NETWORKS: u16 = 1024;
+/// The first rippled version that requires `NetworkID` on restricted networks.
+pub const REQUIRED_NETWORKID_VERSION: &str = "1.11.0";
+/// How far ahead of the current ledger `LastLedgerSequence` is set by autofill.
+pub const LEDGER_OFFSET: u8 = 20;
 /// ConfidentialMPT transactions pay 10× the reference base fee, covering the
 /// cost of verifying the transaction's zero-knowledge proof. rippled computes
 /// this *additively* — `base + base × kConfidentialFeeMultiplier` with
@@ -263,7 +268,12 @@ fn calculate_base_fee_for_confidential_mpt<'a: 'b, 'b>(
         .into())
 }
 
-fn txn_needs_network_id(common_fields: CommonFields<'_>) -> XRPLHelperResult<bool> {
+/// Whether a transaction must carry a `NetworkID`, given the server's reported
+/// `build_version` and the transaction's network.
+///
+/// Returns `false` when the server reports no `build_version`, so this is a
+/// predicate for a caller that has already reached a node — not an offline rule.
+pub fn txn_needs_network_id(common_fields: CommonFields<'_>) -> XRPLHelperResult<bool> {
     let is_higher_restricted_networks = if let Some(network_id) = common_fields.network_id {
         network_id > RESTRICTED_NETWORKS as u32
     } else {
@@ -363,14 +373,18 @@ where
     C: XRPLAsyncClient,
 {
     // max of xrp_to_drops(0.1) and calculate_fee_per_transaction_type
-    let expected_fee = XRPAmount::from("100000")
-        .max(calculate_fee_per_transaction_type(transaction, Some(client), None).await?);
+    let floor = XRPAmount::from("100000");
+    let calculated = calculate_fee_per_transaction_type(transaction, Some(client), None).await?;
+    let expected_fee = match floor.checked_cmp(&calculated)? {
+        core::cmp::Ordering::Greater => floor,
+        _ => calculated,
+    };
     let transaction_fee = transaction
         .get_common_fields()
         .fee
         .clone()
         .unwrap_or(XRPAmount::from("0"));
-    if transaction_fee > expected_fee {
+    if transaction_fee.checked_cmp(&expected_fee)? == core::cmp::Ordering::Greater {
         Err(XRPLSignTransactionException::FeeTooHigh(transaction_fee.to_string()).into())
     } else {
         Ok(())

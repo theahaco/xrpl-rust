@@ -8,6 +8,7 @@ pub mod utils;
 use crate::constants::CryptoAlgorithm;
 use crate::core::addresscodec::exceptions::XRPLAddressCodecException;
 use crate::core::addresscodec::utils::*;
+use crate::core::keypairs::secret::SeedBytes;
 use crate::skip_err;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -120,22 +121,20 @@ pub fn encode_seed(
 /// use alloc::vec;
 ///
 /// let seed: &str = "sn259rEFXrQrWyx3Q7XneWcwV6dfL";
-/// let tuple: ([u8; SEED_LENGTH], CryptoAlgorithm) = (
-///     [207, 45, 227, 120, 251, 221, 126, 46, 232, 125, 72, 109, 251, 90, 123, 255],
-///     CryptoAlgorithm::SECP256K1,
+///
+/// let (bytes, algorithm) = decode_seed(seed).expect("a known-good seed");
+///
+/// // The bytes come back in a `SeedBytes`, which wipes on drop and prints as
+/// // `<redacted>`: they are what both curves derive from, so they are as
+/// // sensitive as the private key itself.
+/// assert_eq!(
+///     bytes.as_slice(),
+///     &[207, 45, 227, 120, 251, 221, 126, 46, 232, 125, 72, 109, 251, 90, 123, 255],
 /// );
-///
-/// let decoding: Option<([u8; SEED_LENGTH], CryptoAlgorithm)> = match decode_seed(seed) {
-///     Ok((bytes, algorithm)) => Some((bytes, algorithm)),
-///     Err(e) => match e {
-///         XRPLCoreException::XRPLAddressCodecError(XRPLAddressCodecException::UnknownSeedEncoding) => None,
-///         _ => None,
-///     }
-/// };
-///
-/// assert_eq!(Some(tuple), decoding);
+/// assert_eq!(bytes.len(), SEED_LENGTH);
+/// assert_eq!(algorithm, CryptoAlgorithm::SECP256K1);
 /// ```
-pub fn decode_seed(seed: &str) -> XRPLCoreResult<([u8; SEED_LENGTH], CryptoAlgorithm)> {
+pub fn decode_seed(seed: &str) -> XRPLCoreResult<(SeedBytes, CryptoAlgorithm)> {
     let mut result: Option<XRPLCoreResult<Vec<u8>>> = None;
     let mut algo: Option<CryptoAlgorithm> = None;
 
@@ -147,10 +146,13 @@ pub fn decode_seed(seed: &str) -> XRPLCoreResult<([u8; SEED_LENGTH], CryptoAlgor
 
     match result {
         Some(Ok(val)) => {
+            // Length-check through the array conversion, then keep the bytes in
+            // a wiping wrapper: these are the bytes both curves derive from, so
+            // they are as sensitive as the private key itself.
             let decoded: [u8; SEED_LENGTH] = val
                 .try_into()
                 .map_err(XRPLAddressCodecException::VecResizeError)?;
-            Ok((decoded, algo.expect("decode_seed")))
+            Ok((SeedBytes::new(decoded.to_vec()), algo.expect("decode_seed")))
         }
         Some(Err(_)) | None => Err(XRPLAddressCodecException::UnknownSeedEncoding.into()),
     }
@@ -599,13 +601,13 @@ mod test {
         let hex_bytes = hex::decode(SECP256K1_HEX_TEST).expect("");
         let (decode_result, encoding_type) = decode_seed(SECP256K1_ENCODED_SEED_TEST).unwrap();
 
-        assert_eq!(hex_bytes, decode_result);
+        assert_eq!(hex_bytes, decode_result.as_slice());
         assert_eq!(CryptoAlgorithm::SECP256K1, encoding_type);
 
         let hex_bytes = hex::decode(ED25519_HEX_TEST).expect("");
         let (decode_result, encoding_type) = decode_seed(ED25519_ENCODED_SEED_TEST).unwrap();
 
-        assert_eq!(hex_bytes, decode_result);
+        assert_eq!(hex_bytes, decode_result.as_slice());
         assert_eq!(CryptoAlgorithm::ED25519, encoding_type);
     }
 
@@ -701,7 +703,7 @@ mod test {
             Ok(encoded_string.to_string()),
         );
 
-        assert_eq!(decode_result, bytes);
+        assert_eq!(decode_result.as_slice(), bytes);
         assert_eq!(encoding_type, CryptoAlgorithm::SECP256K1);
     }
 
@@ -716,7 +718,7 @@ mod test {
             Ok(encoded_string.to_string()),
         );
 
-        assert_eq!(decode_result, bytes);
+        assert_eq!(decode_result.as_slice(), bytes);
         assert_eq!(encoding_type, CryptoAlgorithm::SECP256K1);
     }
 
@@ -731,7 +733,7 @@ mod test {
             Ok(encoded_string.to_string()),
         );
 
-        assert_eq!(decode_result, bytes);
+        assert_eq!(decode_result.as_slice(), bytes);
         assert_eq!(encoding_type, CryptoAlgorithm::ED25519);
     }
 
@@ -746,7 +748,7 @@ mod test {
             Ok(encoded_string.to_string()),
         );
 
-        assert_eq!(decode_result, bytes);
+        assert_eq!(decode_result.as_slice(), bytes);
         assert_eq!(encoding_type, CryptoAlgorithm::ED25519);
     }
 }

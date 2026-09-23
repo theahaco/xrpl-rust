@@ -17,6 +17,7 @@ use crate::common::{
 };
 use xrpl::asynch::account::get_next_valid_seq_number;
 use xrpl::asynch::clients::AsyncJsonRpcClient;
+use xrpl::core::keypairs::Seed;
 use xrpl::models::transactions::confidential_mpt_clawback::ConfidentialMPTClawback;
 use xrpl::models::transactions::confidential_mpt_convert::ConfidentialMPTConvert;
 use xrpl::models::transactions::confidential_mpt_convert_back::ConfidentialMPTConvertBack;
@@ -89,14 +90,14 @@ async fn rpc(body: serde_json::Value) -> serde_json::Value {
 
 /// Submit a server-signed `tx_json` (`secret` = wallet seed), assert
 /// `tesSUCCESS`, and advance the ledger. Used only for prerequisite setup.
-async fn submit_signed(seed: &str, tx_json: serde_json::Value) {
+async fn submit_signed(seed: &Seed, tx_json: serde_json::Value) {
     let tx_type = tx_json["TransactionType"]
         .as_str()
         .unwrap_or("?")
         .to_string();
     let result = rpc(serde_json::json!({
         "method": "submit",
-        "params": [{ "secret": seed, "tx_json": tx_json }],
+        "params": [{ "secret": seed.as_str(), "tx_json": tx_json }],
     }))
     .await;
     let code = result["engine_result"].as_str().unwrap_or("<none>");

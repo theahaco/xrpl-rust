@@ -17,7 +17,10 @@
 .idea
 
 # Additional
+# Scratch binaries people drop into a library crate while debugging. The CLI's
+# entry point is a real, required source file and is exempted below.
 **/src/main.rs
+!xrpl-cli/src/main.rs
 
 **/.DS_Store
 

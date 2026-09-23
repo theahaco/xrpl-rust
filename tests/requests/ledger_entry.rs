@@ -5,8 +5,7 @@
 //   - vault_by_owner_seq: same vault, fetch via VaultIdentifier::OwnerSeq
 
 use crate::common::{
-    generate_funded_wallet, provision_credential, test_transaction, with_blockchain_lock,
-    CREDENTIAL_TYPE_KYC,
+    generate_funded_wallet, provision_credential, with_blockchain_lock, CREDENTIAL_TYPE_KYC,
 };
 use xrpl::asynch::clients::XRPLAsyncClient;
 use xrpl::models::{

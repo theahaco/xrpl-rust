@@ -78,7 +78,10 @@ serde_json = { version = "1.0.68", default-features = false, features = [
 ] }
 serde_with = "3.2.0"
 serde_repr = "0.1"
-zeroize = "1.5.7"
+zeroize = { version = "1.5.7", default-features = false, features = [
+    "alloc",
+    "derive",
+] }
 hashbrown = { version = "0.15.0", features = ["serde"] }
 fnv = { version = "1.0.7", default-features = false }
 derive-new = { version = "0.7.0", default-features = false }

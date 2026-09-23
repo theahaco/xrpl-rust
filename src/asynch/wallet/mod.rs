@@ -52,7 +52,12 @@ where
         wait_seconds(1).await;
         if !is_funded {
             let balance = check_balance(client, address.into()).await;
-            if balance > starting_balance {
+            // A balance the node reports as a non-number means "not funded yet"
+            // here, not an error: this is a poll loop with its own timeout.
+            if matches!(
+                balance.checked_cmp(&starting_balance),
+                Ok(core::cmp::Ordering::Greater)
+            ) {
                 is_funded = true;
             }
         } else {
