@@ -6,6 +6,10 @@ pub mod payment;
 pub mod vault;
 pub mod xchain;
 
+// Every test binary compiles `tests/common/` separately, so a re-export the
+// `integration_test` modules rely on is dead code in `funding` and `utils`.
+// `#![allow(dead_code)]` above does not cover imports.
+#[allow(unused_imports)]
 pub use constants::CREDENTIAL_TYPE_KYC;
 
 use anyhow::Result;

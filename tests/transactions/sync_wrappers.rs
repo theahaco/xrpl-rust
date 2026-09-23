@@ -10,7 +10,7 @@
 // holds an EnterGuard while the sync call runs.
 
 use tokio::runtime::Runtime;
-use xrpl::{asynch::clients::AsyncJsonRpcClient, models::XRPAmount, wallet::Wallet};
+use xrpl::{asynch::clients::AsyncJsonRpcClient, wallet::Wallet};
 
 use crate::common::{
     constants::STANDALONE_URL, generate_funded_wallet, ledger_accept, payment::xrp_payment,
@@ -76,7 +76,10 @@ fn test_sync_account_helpers_against_genesis() {
 
     let balance = xrpl::account::get_xrp_balance(genesis.into(), &client, None)
         .expect("sync get_xrp_balance");
-    assert!(balance > XRPAmount::from("0"));
+    let drops: u64 = balance
+        .try_into()
+        .expect("balance should be a valid drop amount");
+    assert!(drops > 0);
 }
 
 #[test]
@@ -252,10 +255,13 @@ fn test_sync_generate_faucet_wallet() {
     let balance =
         xrpl::account::get_xrp_balance(wallet.classic_address.clone().into(), &client, None)
             .expect("sync get_xrp_balance on freshly funded wallet");
+    let drops: u64 = balance
+        .clone()
+        .try_into()
+        .expect("balance should be a valid drop amount");
     assert!(
-        balance > XRPAmount::from("0"),
-        "faucet wallet should have positive balance, got {}",
-        balance
+        drops > 0,
+        "faucet wallet should have positive balance, got {balance}"
     );
 }
 

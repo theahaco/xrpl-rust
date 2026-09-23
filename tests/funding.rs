@@ -50,10 +50,14 @@ mod tests {
                 .await
                 .expect("Failed to get wallet balance");
 
-            assert!(
-                balance > XRPAmount::from("0"),
-                "Wallet should have a positive balance"
-            );
+            // `XRPAmount` has no `Ord` — it wraps a string the node supplied, so an
+            // infallible comparison would have to panic on malformed input. Convert
+            // to drops, which is what "positive balance" actually means.
+            let drops: u64 = balance
+                .try_into()
+                .expect("balance should be a valid drop amount");
+
+            assert!(drops > 0, "Wallet should have a positive balance");
         })
         .await;
     }
