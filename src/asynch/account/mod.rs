@@ -48,7 +48,7 @@ where
         get_account_root(address, client, ledger_index.unwrap_or("validated".into())).await?;
     match account_info.balance {
         Some(balance) => Ok(balance),
-        None => Ok(0.into()),
+        None => Ok(0u64.into()),
     }
 }
 

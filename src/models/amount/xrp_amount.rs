@@ -12,13 +12,38 @@ use core::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// The total XRP supply, in drops. Every valid drop amount is in `0..=MAX_DROPS`.
+///
+/// 100 billion XRP at 1,000,000 drops each. The ledger cannot represent more, so
+/// anything above this is a malformed amount rather than an unaffordable one.
+pub const MAX_DROPS: u64 = 100_000_000_000_000_000;
+
 /// Represents an amount of XRP in Drops.
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 pub struct XRPAmount<'a>(pub Cow<'a, str>);
 
 impl<'a> Model for XRPAmount<'a> {
     fn get_errors(&self) -> XRPLModelResult<()> {
-        self.0.parse::<u32>()?;
+        // Drops are an unsigned 64-bit integer on the wire. Parsing them as `u32`
+        // capped the library at 4,294.967295 XRP — roughly 0.000004% of the
+        // representable range — and surfaced as a bare `ParseIntError` naming no
+        // field.
+        let drops: u64 = self
+            .0
+            .parse()
+            .map_err(|_| XRPLModelException::InvalidValue {
+                field: "XRPAmount".into(),
+                expected: "an integer number of drops".into(),
+                found: self.0.to_string(),
+            })?;
+
+        if drops > MAX_DROPS {
+            return Err(XRPLModelException::InvalidValue {
+                field: "XRPAmount".into(),
+                expected: alloc::format!("at most {MAX_DROPS} drops"),
+                found: self.0.to_string(),
+            });
+        }
 
         Ok(())
     }
@@ -83,6 +108,12 @@ impl<'a> From<u32> for XRPAmount<'a> {
     }
 }
 
+impl<'a> From<u64> for XRPAmount<'a> {
+    fn from(value: u64) -> Self {
+        Self(value.to_string().into())
+    }
+}
+
 impl<'a> TryFrom<Value> for XRPAmount<'a> {
     type Error = XRPLModelException;
 
@@ -128,6 +159,14 @@ impl<'a> TryInto<u32> for XRPAmount<'a> {
     }
 }
 
+impl<'a> TryInto<u64> for XRPAmount<'a> {
+    type Error = XRPLModelException;
+
+    fn try_into(self) -> XRPLModelResult<u64, Self::Error> {
+        Ok(self.0.parse::<u64>()?)
+    }
+}
+
 impl<'a> TryInto<BigDecimal> for XRPAmount<'a> {
     type Error = XRPLModelException;
 
@@ -156,18 +195,12 @@ impl<'a> XRPAmount<'a> {
     }
 }
 
-impl<'a> PartialOrd for XRPAmount<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl<'a> Ord for XRPAmount<'a> {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.checked_cmp(other)
-            .expect("cannot compare invalid XRPAmount values")
-    }
-}
+// There is deliberately no `Ord`/`PartialOrd` here. An `XRPAmount` wraps a string
+// the library does not control — amounts arrive from the network — so an
+// infallible comparison has to panic on malformed input, and `amounts.sort()` on
+// a parsed response could abort the process. `checked_cmp` is the honest API. A
+// validated `Drops(u64)` newtype is the place for an infallible ordering if one
+// is ever needed.
 
 #[cfg(test)]
 mod tests {
@@ -176,23 +209,32 @@ mod tests {
     use core::cmp::Ordering;
 
     #[test]
-    fn test_cmp_valid_amounts() {
+    fn test_checked_cmp_valid_amounts() {
         let amount1 = XRPAmount("100".into());
         let amount2 = XRPAmount("200".into());
         let amount3 = XRPAmount("100".into());
 
-        assert_eq!(amount1.cmp(&amount2), Ordering::Less);
-        assert_eq!(amount2.cmp(&amount1), Ordering::Greater);
-        assert_eq!(amount1.cmp(&amount3), Ordering::Equal);
+        assert_eq!(amount1.checked_cmp(&amount2).unwrap(), Ordering::Less);
+        assert_eq!(amount2.checked_cmp(&amount1).unwrap(), Ordering::Greater);
+        assert_eq!(amount1.checked_cmp(&amount3).unwrap(), Ordering::Equal);
     }
 
     #[test]
-    fn test_cmp_zero() {
+    fn test_checked_cmp_is_numeric_not_lexicographic() {
+        // "9" sorts after "10" as a string and before it as a number.
+        let nine = XRPAmount("9".into());
+        let ten = XRPAmount("10".into());
+
+        assert_eq!(nine.checked_cmp(&ten).unwrap(), Ordering::Less);
+    }
+
+    #[test]
+    fn test_checked_cmp_zero() {
         let zero = XRPAmount("0".into());
         let positive = XRPAmount("100".into());
 
-        assert_eq!(zero.cmp(&positive), Ordering::Less);
-        assert_eq!(positive.cmp(&zero), Ordering::Greater);
+        assert_eq!(zero.checked_cmp(&positive).unwrap(), Ordering::Less);
+        assert_eq!(positive.checked_cmp(&zero).unwrap(), Ordering::Greater);
     }
 
     #[test]
@@ -213,21 +255,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "cannot compare invalid XRPAmount values")]
-    fn test_cmp_panics_on_malformed() {
+    fn test_malformed_amount_cannot_panic_a_comparison() {
+        // There is no `Ord`, so a malformed amount arriving from the network can
+        // no longer abort a sort. The fallible comparison reports it instead.
         let valid = XRPAmount("100".into());
         let malformed = XRPAmount("xyz".into());
 
-        let _ = valid.cmp(&malformed);
-    }
-
-    #[test]
-    fn test_partial_ord_consistency() {
-        let amount1 = XRPAmount("100".into());
-        let amount2 = XRPAmount("200".into());
-
-        // PartialOrd should be consistent with Ord
-        assert_eq!(amount1.partial_cmp(&amount2), Some(amount1.cmp(&amount2)));
+        assert!(valid.checked_cmp(&malformed).is_err());
     }
 
     #[test]
@@ -238,11 +272,64 @@ mod tests {
             XRPAmount("25".into()),
         ];
 
-        amounts.sort();
+        // Sorting is the caller's decision now, and it has to say what happens to
+        // a malformed amount. Here: treat the whole sort as fallible.
+        amounts.sort_by(|a, b| a.checked_cmp(b).expect("test amounts are valid"));
 
         assert_eq!(amounts[0].0.as_ref(), "25");
         assert_eq!(amounts[1].0.as_ref(), "50");
         assert_eq!(amounts[2].0.as_ref(), "100");
+    }
+
+    #[test]
+    fn test_validates_drops_beyond_the_u32_ceiling() {
+        // u32::MAX drops is 4,294.967295 XRP. Everything above it used to fail
+        // validation with a bare ParseIntError naming no field.
+        for drops in [
+            "4294967295",
+            "5000000000",
+            "100000000000",
+            "100000000000000000",
+        ] {
+            assert!(
+                XRPAmount(drops.into()).get_errors().is_ok(),
+                "{drops} drops should validate"
+            );
+        }
+    }
+
+    #[test]
+    fn test_rejects_more_than_the_total_supply() {
+        let over = XRPAmount((MAX_DROPS + 1).to_string().into());
+        let error = over.get_errors().unwrap_err();
+        let message = format!("{error}");
+
+        assert!(message.contains("XRPAmount"), "error should name the field");
+        assert!(
+            message.contains("100000000000000000"),
+            "error should name the bound: {message}"
+        );
+    }
+
+    #[test]
+    fn test_rejects_a_non_integer_naming_the_field() {
+        let error = XRPAmount("not-a-number".into()).get_errors().unwrap_err();
+        let message = format!("{error}");
+
+        assert!(message.contains("XRPAmount"), "error should name the field");
+        assert!(
+            message.contains("not-a-number"),
+            "error should quote the value"
+        );
+    }
+
+    #[test]
+    fn test_u64_round_trip() {
+        let amount = XRPAmount::from(100_000_000_000u64);
+        assert_eq!(amount.0.as_ref(), "100000000000");
+
+        let drops: u64 = amount.try_into().unwrap();
+        assert_eq!(drops, 100_000_000_000u64);
     }
 
     #[test]

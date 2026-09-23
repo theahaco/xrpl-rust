@@ -363,14 +363,18 @@ where
     C: XRPLAsyncClient,
 {
     // max of xrp_to_drops(0.1) and calculate_fee_per_transaction_type
-    let expected_fee = XRPAmount::from("100000")
-        .max(calculate_fee_per_transaction_type(transaction, Some(client), None).await?);
+    let floor = XRPAmount::from("100000");
+    let calculated = calculate_fee_per_transaction_type(transaction, Some(client), None).await?;
+    let expected_fee = match floor.checked_cmp(&calculated)? {
+        core::cmp::Ordering::Greater => floor,
+        _ => calculated,
+    };
     let transaction_fee = transaction
         .get_common_fields()
         .fee
         .clone()
         .unwrap_or(XRPAmount::from("0"));
-    if transaction_fee > expected_fee {
+    if transaction_fee.checked_cmp(&expected_fee)? == core::cmp::Ordering::Greater {
         Err(XRPLSignTransactionException::FeeTooHigh(transaction_fee.to_string()).into())
     } else {
         Ok(())

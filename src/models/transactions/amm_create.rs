@@ -314,7 +314,7 @@ mod tests {
             amount: Amount::XRPAmount(XRPAmount::from("50000000")), // 50 XRP
             amount2: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "BTC".into(),
-                "rBTCIssuer123".into(),
+                "r9cZA1mLK5R5Am25ArfXFmqgNwjZgnfk59".into(),
                 "0.5".into(), // 0.5 BTC
             )),
             trading_fee: 100, // 0.1% trading fee
@@ -347,12 +347,12 @@ mod tests {
             },
             amount: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "USD".into(),
-                "rUSDIssuer222".into(),
+                "r4DymtkgUAh2wqRxVfdd3Xtswzim6eC6c5".into(),
                 "10000".into(), // 10,000 USD
             )),
             amount2: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
                 "EUR".into(),
-                "rEURIssuer333".into(),
+                "r3AthBf5eW4b9ujLoXNHFeeEJsK3PtJDea".into(),
                 "8500".into(), // 8,500 EUR (roughly equal value)
             )),
             trading_fee: 50, // 0.05% trading fee
@@ -376,13 +376,13 @@ mod tests {
                 ..Default::default()
             },
             amount: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
-                "DOGE".into(),
-                "rDOGEIssuer555".into(),
+                "444F474500000000000000000000000000000000".into(),
+                "r9cZA1mLK5R5Am25ArfXFmqgNwjZgnfk59".into(),
                 "1000000".into(), // 1M DOGE
             )),
             amount2: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
-                "SHIB".into(),
-                "rSHIBIssuer666".into(),
+                "5348494200000000000000000000000000000000".into(),
+                "r4DymtkgUAh2wqRxVfdd3Xtswzim6eC6c5".into(),
                 "100000000".into(), // 100M SHIB
             )),
             trading_fee: 1000, // 1% trading fee for volatile assets
@@ -470,8 +470,8 @@ mod tests {
             },
             amount: Amount::XRPAmount(XRPAmount::from("10000000")), // 10 XRP
             amount2: Amount::IssuedCurrencyAmount(IssuedCurrencyAmount::new(
-                "USDT".into(),
-                "rUSDTIssuer333".into(),
+                "5553445400000000000000000000000000000000".into(),
+                "r3AthBf5eW4b9ujLoXNHFeeEJsK3PtJDea".into(),
                 "5".into(), // 5 USDT
             )),
             trading_fee: 0, // No trading fee

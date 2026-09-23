@@ -250,11 +250,11 @@ mod tests {
         );
         assert_eq!(
             validated_ledger.reserve_base_xrp,
-            Some(Amount::XRPAmount(10.into()))
+            Some(Amount::XRPAmount(10u32.into()))
         );
         assert_eq!(
             validated_ledger.reserve_inc_xrp,
-            Some(Amount::XRPAmount(2.into()))
+            Some(Amount::XRPAmount(2u32.into()))
         );
         assert_eq!(validated_ledger.seq, 82521761);
 
