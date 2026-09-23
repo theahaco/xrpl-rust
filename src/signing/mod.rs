@@ -14,7 +14,6 @@ use core::fmt::Debug;
 
 use alloc::string::String;
 use alloc::string::ToString;
-use alloc::vec;
 use alloc::vec::Vec;
 use serde::Serialize;
 use serde::{de::DeserializeOwned, Deserialize};
@@ -56,6 +55,14 @@ where
     transaction.validate()?;
 
     if multisign {
+        // A multisigned transaction carries an empty `SigningPubKey`, and an
+        // absent one is *different bytes* in the STObject (`7300` versus
+        // nothing). This branch never calls `prepare_transaction`, so without
+        // this the field is whatever the caller left — `Some("")` from the
+        // builder, `None` from `Default` and from deserialization — and two
+        // signers of the same logical transaction sign two different digests.
+        transaction.get_mut_common_fields().signing_pub_key = Some("".into());
+
         let serialized_for_signing =
             encode_for_multisigning(transaction, wallet.classic_address.clone().into())?;
         let serialized_bytes = hex::decode(serialized_for_signing)?;
@@ -65,7 +72,19 @@ where
             signature,
             wallet.public_key.clone(),
         );
-        transaction.get_mut_common_fields().signers = Some(vec![signer]);
+
+        // Append, do not overwrite. Signing the same transaction twice with two
+        // different keys is the whole point of multisigning; replacing the array
+        // silently discarded every earlier signature and produced a below-quorum
+        // transaction that failed on-ledger with an opaque error.
+        let common_fields = transaction.get_mut_common_fields();
+        let mut signers = common_fields.signers.take().unwrap_or_default();
+        // Re-signing with the same key replaces that signer's entry rather than
+        // adding a second one for the same account, which rippled rejects.
+        signers.retain(|existing| existing.account != signer.account);
+        signers.push(signer);
+        sort_signers(&mut signers)?;
+        common_fields.signers = Some(signers);
 
         Ok(())
     } else {
@@ -99,10 +118,33 @@ where
         };
         decoded_tx_signers.push(tx_signer.clone());
     }
-    decoded_tx_signers
-        .sort_by_key(|signer| decode_classic_address(signer.account.as_ref()).unwrap());
+    sort_signers(&mut decoded_tx_signers)?;
     transaction.get_mut_common_fields().signers = Some(decoded_tx_signers);
     transaction.get_mut_common_fields().signing_pub_key = Some("".into());
+
+    Ok(())
+}
+
+/// Sort a `Signers` array into the order the ledger requires: ascending by the
+/// signer's decoded 20-byte AccountID, not by its base58 spelling.
+///
+/// Fallible because the accounts are caller-supplied. This used to `.unwrap()`
+/// the decode, so a malformed address reaching `multisign` aborted the process.
+fn sort_signers(signers: &mut [Signer]) -> XRPLHelperResult<()> {
+    let mut decoded = Vec::with_capacity(signers.len());
+    for signer in signers.iter() {
+        let account_id = decode_classic_address(signer.account.as_ref()).map_err(|_| {
+            XRPLMultisignException::InvalidSignerAccount(signer.account.to_string())
+        })?;
+        decoded.push(account_id);
+    }
+
+    // Decode once per signer, then sort on the decoded keys.
+    let mut order: Vec<usize> = (0..signers.len()).collect();
+    order.sort_by(|&a, &b| decoded[a].cmp(&decoded[b]));
+
+    let sorted: Vec<Signer> = order.iter().map(|&i| signers[i].clone()).collect();
+    signers.clone_from_slice(&sorted);
 
     Ok(())
 }
@@ -190,5 +232,146 @@ where
         )?)
     } else {
         Ok(())
+    }
+}
+
+#[cfg(all(test, feature = "wallet", feature = "models"))]
+mod tests {
+    use super::*;
+    use crate::models::transactions::payment::Payment;
+    use crate::models::transactions::{
+        CommonFields, CommonTransactionBuilder as _, Transaction as _, TransactionType,
+    };
+    use crate::models::Amount;
+    use alloc::borrow::Cow;
+    // `vec!` is not in the prelude under no_std, and CI builds this test cfg
+    // against the embassy feature set.
+    use alloc::vec;
+
+    /// Two unrelated seeds, so the derived signers are two distinct accounts.
+    const SEED_A: &str = "sEdSKaCy2JT7JaM7v95H9SxkhP9wS2r";
+    const SEED_B: &str = "sp5fghtJtpUorTwvof1NpDXAzNwf5";
+    const SEED_C: &str = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
+
+    fn payment(account: &str) -> Payment<'static> {
+        Payment {
+            common_fields: CommonFields {
+                account: Cow::Owned(account.to_string()),
+                transaction_type: TransactionType::Payment,
+                ..Default::default()
+            },
+            amount: Amount::XRPAmount("1000000".into()),
+            destination: "ra5nK24KXen9AHvsdFTKHSANinZseWnPcX".into(),
+            ..Default::default()
+        }
+        .with_fee("30")
+        .with_sequence(1)
+    }
+
+    #[test]
+    fn test_multisign_appends_rather_than_overwriting() {
+        let alice = Wallet::new(SEED_A, 0).expect("wallet a");
+        let bob = Wallet::new(SEED_B, 0).expect("wallet b");
+
+        let mut tx = payment(&alice.classic_address);
+        sign(&mut tx, &alice, true).expect("alice signs");
+        sign(&mut tx, &bob, true).expect("bob signs");
+
+        let signers = Transaction::get_common_fields(&tx)
+            .signers
+            .as_ref()
+            .expect("signers present");
+
+        // Before this fix the second call replaced the array, leaving one entry
+        // and a transaction that failed quorum on-ledger with no local error.
+        assert_eq!(signers.len(), 2, "both signatures must survive");
+        assert!(signers.iter().any(|s| s.account == alice.classic_address));
+        assert!(signers.iter().any(|s| s.account == bob.classic_address));
+    }
+
+    #[test]
+    fn test_multisign_sorts_by_decoded_account_id() {
+        let wallets: Vec<Wallet> = [SEED_A, SEED_B, SEED_C]
+            .iter()
+            .map(|seed| Wallet::new(seed, 0).expect("wallet"))
+            .collect();
+
+        let mut tx = payment(&wallets[0].classic_address);
+        for wallet in &wallets {
+            sign(&mut tx, wallet, true).expect("sign");
+        }
+
+        let signers = Transaction::get_common_fields(&tx)
+            .signers
+            .as_ref()
+            .expect("signers");
+        assert_eq!(signers.len(), 3);
+
+        // The ledger requires ascending order by the decoded 20-byte AccountID,
+        // which is not the same as ascending base58.
+        let decoded: Vec<_> = signers
+            .iter()
+            .map(|s| decode_classic_address(s.account.as_ref()).expect("decodes"))
+            .collect();
+        let mut expected = decoded.clone();
+        expected.sort();
+        assert_eq!(decoded, expected, "signers must be sorted by AccountID");
+    }
+
+    #[test]
+    fn test_multisign_replaces_a_repeated_signer() {
+        let alice = Wallet::new(SEED_A, 0).expect("wallet a");
+
+        let mut tx = payment(&alice.classic_address);
+        sign(&mut tx, &alice, true).expect("first");
+        sign(&mut tx, &alice, true).expect("second");
+
+        let signers = Transaction::get_common_fields(&tx)
+            .signers
+            .as_ref()
+            .expect("signers");
+        // rippled rejects two entries for one account; re-signing replaces.
+        assert_eq!(signers.len(), 1);
+    }
+
+    #[test]
+    fn test_multisign_forces_an_empty_signing_pub_key() {
+        let alice = Wallet::new(SEED_A, 0).expect("wallet a");
+
+        // Start from the deserialization shape, where `signing_pub_key` is None.
+        let mut tx = payment(&alice.classic_address);
+        Transaction::get_mut_common_fields(&mut tx).signing_pub_key = None;
+
+        sign(&mut tx, &alice, true).expect("alice signs");
+
+        // Absent and empty are different bytes in the STObject (`7300` versus
+        // nothing), so two signers must agree on which one they signed over.
+        assert_eq!(
+            Transaction::get_common_fields(&tx)
+                .signing_pub_key
+                .as_deref(),
+            Some(""),
+            "multisigning must normalize SigningPubKey to the empty string"
+        );
+    }
+
+    #[test]
+    fn test_sort_signers_rejects_a_malformed_account() {
+        let mut signers = vec![Signer::new(
+            "not-an-address".to_string(),
+            "DEADBEEF".to_string(),
+            "ED00".to_string(),
+        )];
+
+        // This used to `.unwrap()`, aborting the process on caller-supplied input.
+        assert!(sort_signers(&mut signers).is_err());
+    }
+
+    #[test]
+    fn test_encode_for_multisigning_rejects_a_malformed_account() {
+        let alice = Wallet::new(SEED_A, 0).expect("wallet a");
+        let tx = payment(&alice.classic_address);
+
+        assert!(encode_for_multisigning(&tx, "not-an-address".into()).is_err());
     }
 }
