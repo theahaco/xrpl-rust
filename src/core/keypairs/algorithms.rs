@@ -487,6 +487,7 @@ impl CryptoImplementation for Ed25519 {
 mod test {
     use super::*;
     use crate::core::keypairs::test_cases::*;
+    use alloc::string::ToString;
 
     #[test]
     fn test_secp256k1_derive_keypair() {
