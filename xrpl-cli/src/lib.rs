@@ -16,4 +16,4 @@ pub mod commands;
 pub mod error;
 pub mod output;
 
-pub use error::Error;
+pub use error::{Error, SignerError};
