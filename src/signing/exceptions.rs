@@ -6,6 +6,8 @@ use thiserror_no_std::Error;
 pub enum XRPLMultisignException {
     #[error("No signers set in the transaction. Use `sign` function with `multisign = true`.")]
     NoSigners,
+    #[error("Signer account {0:?} is not a valid classic address")]
+    InvalidSignerAccount(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
