@@ -22,10 +22,9 @@ pub mod utils;
 
 pub use binary_wrappers::*;
 
-use self::binary_wrappers::{
-    decode_ledger_data_inner, decode_st_object, serialize_json, BATCH_PREFIX,
-    PAYMENT_CHANNEL_CLAIM_PREFIX, TRANSACTION_MULTISIG_PREFIX, TRANSACTION_SIGNATURE_PREFIX,
-};
+// The four signing prefixes arrive through the `pub use binary_wrappers::*`
+// above; naming them again here would be an ambiguous re-import.
+use self::binary_wrappers::{decode_ledger_data_inner, decode_st_object, serialize_json};
 
 use super::exceptions::XRPLCoreResult;
 
@@ -44,10 +43,29 @@ where
 {
     serialize_json(
         prepared_transaction,
-        Some(TRANSACTION_SIGNATURE_PREFIX.to_be_bytes().as_ref()),
+        Some(TRANSACTION_SIGNATURE_PREFIX.as_ref()),
         None,
         true,
     )
+}
+
+/// Encode a transaction for signing *without* a domain prefix.
+///
+/// This is the signing-only serialization — non-signing fields such as
+/// `TxnSignature` and `Signers` are omitted — with no prefix and no suffix, so
+/// the caller can frame it for whichever signing domain it belongs to.
+///
+/// Prefer [`encode_for_signing`] or [`encode_for_multisigning`] unless you are
+/// implementing a signer that frames its own payload. A signer that accepts
+/// pre-framed bytes from its caller is a signing oracle: because XRPL's domain
+/// separation lives inside the signed bytes, anything that can choose those
+/// bytes can obtain a signature over a transaction or a payment-channel claim
+/// while appearing to ask for something else.
+pub fn encode_for_signing_unframed<T>(prepared_transaction: &T) -> XRPLCoreResult<String>
+where
+    T: Serialize,
+{
+    serialize_json(prepared_transaction, None, None, true)
 }
 
 /// Encode a transaction for multi-signing (prepends multi-sign prefix,

@@ -312,8 +312,16 @@ impl DefinitionHandler for DefinitionMap {
     }
 }
 
+/// The vendored `definitions.json` that rippled publishes, verbatim.
+///
+/// Public because it is the authority on transaction types, fields, flags and
+/// serialization types, and a consumer generating a command surface or
+/// validating field names needs it. A published `xrpl-cli` builds against the
+/// crates.io copy of this crate and cannot `include_str!` across the workspace.
+pub const DEFINITIONS_JSON: &str = include_str!("definitions.json");
+
 fn _load_definitions() -> &'static Option<(Definitions, DefinitionMap)> {
-    static JSON: &str = include_str!("definitions.json");
+    static JSON: &str = DEFINITIONS_JSON;
 
     lazy_static! {
         static ref DEFINITIONS: Option<(Definitions, DefinitionMap)> = {

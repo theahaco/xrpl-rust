@@ -689,10 +689,21 @@ impl Iterator for BinaryParser {
 // (not part of the public API)
 // =========================================================================
 
-pub(crate) const TRANSACTION_SIGNATURE_PREFIX: i32 = 0x53545800;
-pub(crate) const TRANSACTION_MULTISIG_PREFIX: [u8; 4] = (0x534D5400u32).to_be_bytes();
-pub(crate) const PAYMENT_CHANNEL_CLAIM_PREFIX: [u8; 4] = (0x434C4D00u32).to_be_bytes();
-pub(crate) const BATCH_PREFIX: [u8; 4] = (0x42434800u32).to_be_bytes();
+// The four signing-domain prefixes are public because domain separation lives
+// *inside* the signed bytes on XRPL. A signer that frames its own payload —
+// rather than trusting a caller to hand it pre-framed bytes — needs them, and
+// `serialize_json` is not itself public.
+
+/// Prefix for a single-signature transaction pre-image (`STX\0`).
+pub const TRANSACTION_SIGNATURE_PREFIX: [u8; 4] = (0x53545800u32).to_be_bytes();
+/// Prefix for a multi-signature transaction pre-image (`SMT\0`).
+///
+/// The signing account's 20-byte AccountID is appended after the serialization.
+pub const TRANSACTION_MULTISIG_PREFIX: [u8; 4] = (0x534D5400u32).to_be_bytes();
+/// Prefix for a payment-channel claim pre-image (`CLM\0`).
+pub const PAYMENT_CHANNEL_CLAIM_PREFIX: [u8; 4] = (0x434C4D00u32).to_be_bytes();
+/// Prefix for an inner-transaction batch pre-image (`BCH\0`).
+pub const BATCH_PREFIX: [u8; 4] = (0x42434800u32).to_be_bytes();
 
 /// UInt64 fields that should be encoded/decoded as base-10 strings instead of hex.
 pub(crate) const BASE10_UINT64_FIELDS: &[&str] = &[
