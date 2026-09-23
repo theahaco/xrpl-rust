@@ -5,7 +5,7 @@ edition = "2021"
 description = "Command line interface for the XRP Ledger, built on xrpl-rust"
 readme = "README.md"
 license = "ISC"
-repository = "https://github.com/sephynox/xrpl-rust"
+repository = "https://github.com/theahaco/xrpl-rust"
 keywords = ["xrpl", "cli"]
 categories = ["command-line-utilities"]
 
@@ -14,20 +14,13 @@ name = "xrpl"
 path = "src/main.rs"
 
 [dependencies]
-xrpl-rust = { version = "1.2.0", path = "..", default-features = false, features = [
-    "std",
-    "tokio-rt",
-    "core",
-    "wallet",
-    "models",
-    "utils",
-    "helpers",
-    "json-rpc",
-    "websocket",
-] }
+# `default-features = false` followed by a verbatim copy of the default list was
+# a no-op that made a lighter CLI build inexpressible. The CLI needs exactly the
+# defaults today; name any narrowing here when a feature actually gets dropped.
+xrpl-rust = { version = "1.2.0", path = ".." }
 
 bip39 = { version = "2.1.0", features = ["rand_core", "zeroize"] }
-clap = { version = "4.5.39", features = ["derive"] }
+clap = { version = "4.5.39", features = ["derive", "env"] }
 hex = "0.4.3"
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
@@ -35,6 +28,10 @@ serde_json = "1.0"
 thiserror-no-std = "2.0.2"
 tokio = { version = "1.0", features = ["rt-multi-thread"] }
 url = "2.2.2"
+zeroize = { version = "1.5.7", features = ["alloc"] }
+
+[dev-dependencies]
+tempfile = "3"
 
 [features]
 default = []

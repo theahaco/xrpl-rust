@@ -12,9 +12,11 @@ authors = [
 description = "A 100% Rust library to interact with the XRPL"
 readme = "README.md"
 license = "ISC"
-repository = "https://github.com/sephynox/xrpl-rust"
+repository = "https://github.com/theahaco/xrpl-rust"
 
-include = ["src/**/*", "Cargo.toml"]
+# README.md is listed explicitly: the previous glob excluded it, so the
+# crates.io page rendered empty.
+include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE"]
 
 keywords = ["xrpl", "no_std"]
 categories = ["no-std"]
