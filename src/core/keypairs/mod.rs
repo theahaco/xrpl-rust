@@ -2,12 +2,14 @@
 
 pub mod algorithms;
 pub mod exceptions;
+pub mod secret;
 #[cfg(test)]
 pub(crate) mod test_cases;
 pub mod utils;
 
 pub use self::algorithms::Ed25519;
 pub use self::algorithms::Secp256k1;
+pub use self::secret::{PrivateKey, Seed, SeedBytes};
 
 use crate::constants::CryptoAlgorithm;
 use crate::core::addresscodec::utils::SEED_LENGTH;
@@ -31,8 +33,8 @@ const fn _get_algorithm_sig_length(algo: CryptoAlgorithm) -> usize {
 
 /// Return the CryptoAlgorithm from a key.
 fn _get_algorithm_from_key(key: &str) -> CryptoAlgorithm {
-    match &key[..2] {
-        ED25519_PREFIX => CryptoAlgorithm::ED25519,
+    match key.get(..2) {
+        Some(ED25519_PREFIX) => CryptoAlgorithm::ED25519,
         _ => CryptoAlgorithm::SECP256K1,
     }
 }
@@ -49,8 +51,8 @@ fn _get_algorithm_engine(algo: CryptoAlgorithm) -> Box<dyn CryptoImplementation>
 /// Return the trait implementation based on the
 /// provided key.
 fn _get_algorithm_engine_from_key(key: &str) -> Box<dyn CryptoImplementation> {
-    match &key[..2] {
-        ED25519_PREFIX => _get_algorithm_engine(CryptoAlgorithm::ED25519),
+    match key.get(..2) {
+        Some(ED25519_PREFIX) => _get_algorithm_engine(CryptoAlgorithm::ED25519),
         _ => _get_algorithm_engine(CryptoAlgorithm::SECP256K1),
     }
 }
@@ -124,31 +126,44 @@ pub fn generate_seed(
 ///
 /// let seed: &str = "sEdSKaCy2JT7JaM7v95H9SxkhP9wS2r";
 /// let validator: bool = false;
-/// let tuple: (String, String) = (
-///     "ED01FA53FA5A7E77798F882ECE20B1ABC00BB358A9E55A202D0D0676BD0CE37A63".into(),
-///     "EDB4C4E046826BD26190D09715FC31F4E6A728204EADD112905B08B14B7F15C4F3".into(),
+///
+/// let (public, private) = derive_keypair(seed, validator).expect("derivation");
+///
+/// assert_eq!(
+///     public,
+///     "ED01FA53FA5A7E77798F882ECE20B1ABC00BB358A9E55A202D0D0676BD0CE37A63"
 /// );
-///
-/// let generator: Option<(String, String)> = match derive_keypair(
-///     seed,
-///     validator,
-/// ) {
-///     Ok(seed) => Some(seed),
-///     Err(e) => match e {
-///         XRPLCoreException::XRPLKeypairsError(XRPLKeypairsException::InvalidSignature) => None,
-///         XRPLCoreException::XRPLKeypairsError(XRPLKeypairsException::ED25519Error) => None,
-///         XRPLCoreException::XRPLKeypairsError(XRPLKeypairsException::SECP256K1Error(_)) => None,
-///         XRPLCoreException::XRPLKeypairsError(XRPLKeypairsException::UnsupportedValidatorAlgorithm { expected: _ }) => None,
-///         _ => None,
-///     }
-/// };
-///
-/// assert_eq!(Some(tuple), generator);
+/// // `private` is a `PrivateKey`: it wipes on drop and prints as `<redacted>`,
+/// // so reaching the key material is a deliberate call.
+/// assert_eq!(
+///     private.as_str(),
+///     "EDB4C4E046826BD26190D09715FC31F4E6A728204EADD112905B08B14B7F15C4F3"
+/// );
 /// ```
-pub fn derive_keypair(seed: &str, validator: bool) -> XRPLCoreResult<(String, String)> {
-    let (decoded_seed, algorithm) = decode_seed(seed)?;
-    let module = _get_algorithm_engine(algorithm);
-    let (public, private) = module.derive_keypair(&decoded_seed, validator)?;
+pub fn derive_keypair(seed: &str, validator: bool) -> XRPLCoreResult<(String, PrivateKey)> {
+    derive_keypair_with_algorithm(seed, validator, None)
+}
+
+/// Derive the public and private keys from a given seed value, optionally
+/// overriding the algorithm the seed's own prefix implies.
+///
+/// A plain `s…` family seed carries no algorithm: [`decode_seed`] resolves it to
+/// secp256k1 because that is the prefix it matches, so Ed25519 keys derived from
+/// a plain seed — which other clients produce when asked — were previously
+/// unreachable from this crate. `algorithm` makes them expressible.
+///
+/// Two seeds that differ only in the algorithm used to derive them produce
+/// different addresses, so a caller that guesses wrong derives an account it
+/// does not control. Record the algorithm alongside the account rather than
+/// inferring it.
+pub fn derive_keypair_with_algorithm(
+    seed: &str,
+    validator: bool,
+    algorithm: Option<CryptoAlgorithm>,
+) -> XRPLCoreResult<(String, PrivateKey)> {
+    let (decoded_seed, seed_algorithm) = decode_seed(seed)?;
+    let module = _get_algorithm_engine(algorithm.unwrap_or(seed_algorithm));
+    let (public, private) = module.derive_keypair(decoded_seed.as_slice(), validator)?;
     let signature = sign(SIGNATURE_VERIFICATION_MESSAGE, &private)?;
 
     if module.is_valid_message(SIGNATURE_VERIFICATION_MESSAGE, &signature, &public) {
@@ -203,19 +218,22 @@ pub fn derive_classic_address(public_key: &str) -> XRPLCoreResult<String> {
 ///
 /// ```
 /// use xrpl::core::keypairs::sign;
+/// use xrpl::core::keypairs::PrivateKey;
 /// use xrpl::core::keypairs::exceptions::XRPLKeypairsException;
 /// use xrpl::core::exceptions::XRPLCoreException;
 ///
 /// let message: &[u8] = "test message".as_bytes();
-/// let private_key: &str = "EDB4C4E046826BD26190D09715FC31F4E\
-///                          6A728204EADD112905B08B14B7F15C4F3";
+/// let private_key = PrivateKey::new(
+///     "EDB4C4E046826BD26190D09715FC31F4E\
+///      6A728204EADD112905B08B14B7F15C4F3".to_string()
+/// );
 /// let signature: String = "CB199E1BFD4E3DAA105E4832EEDFA36413E1F44205E4EFB9\
 ///                          E27E826044C21E3E2E848BBC8195E8959BADF887599B7310\
 ///                          AD1B7047EF11B682E0D068F73749750E".into();
 ///
 /// let signing: Option<String> = match sign(
 ///     message,
-///     private_key,
+///     &private_key,
 /// ) {
 ///     Ok(signature) => Some(signature),
 ///     Err(e) => match e {
@@ -227,8 +245,8 @@ pub fn derive_classic_address(public_key: &str) -> XRPLCoreResult<String> {
 ///
 /// assert_eq!(Some(signature), signing);
 /// ```
-pub fn sign(message: &[u8], private_key: &str) -> XRPLCoreResult<String> {
-    let module = _get_algorithm_engine_from_key(private_key);
+pub fn sign(message: &[u8], private_key: &PrivateKey) -> XRPLCoreResult<String> {
+    let module = _get_algorithm_engine_from_key(private_key.as_str());
     Ok(hex::encode_upper(module.sign(message, private_key)?))
 }
 
@@ -269,12 +287,16 @@ pub trait CryptoImplementation {
         &self,
         decoded_seed: &[u8],
         is_validator: bool,
-    ) -> XRPLCoreResult<(String, String)>;
+    ) -> XRPLCoreResult<(String, PrivateKey)>;
 
     /// Signs a message using a given private key.
-    /// * `message` - Text about foo.
-    /// * `private_key` - Text about bar.
-    fn sign(&self, message: &[u8], private_key: &str) -> XRPLCoreResult<Vec<u8>>;
+    ///
+    /// `message` is the exact byte sequence to sign — already framed for its
+    /// signing domain. Framing is the caller's job here because this trait is
+    /// the raw curve operation; the domain-aware entry points are
+    /// [`encode_for_signing`](crate::core::binarycodec::encode_for_signing) and
+    /// its siblings.
+    fn sign(&self, message: &[u8], private_key: &PrivateKey) -> XRPLCoreResult<Vec<u8>>;
 
     /// Verifies the signature on a given message.
     fn is_valid_message(&self, message: &[u8], signature: &str, public_key: &str) -> bool;
@@ -306,9 +328,9 @@ mod test {
         let (public_ed25519, private_ed25519) = derive_keypair(SEED_ED25519, false).unwrap();
         let (public_secp256k1, private_secp256k1) = derive_keypair(SEED_SECP256K1, false).unwrap();
 
-        assert_eq!(PRIVATE_ED25519, private_ed25519);
+        assert_eq!(PRIVATE_ED25519, private_ed25519.as_str());
         assert_eq!(PUBLIC_ED25519, public_ed25519);
-        assert_eq!(PRIVATE_SECP256K1, private_secp256k1);
+        assert_eq!(PRIVATE_SECP256K1, private_secp256k1.as_str());
         assert_eq!(PUBLIC_SECP256K1, public_secp256k1);
     }
 
@@ -328,12 +350,18 @@ mod test {
     #[test]
     fn test_sign() {
         assert_eq!(
-            sign(TEST_MESSAGE.as_bytes(), PRIVATE_ED25519),
+            sign(
+                TEST_MESSAGE.as_bytes(),
+                &PrivateKey::new(PRIVATE_ED25519.to_string())
+            ),
             Ok(hex::encode_upper(SIGNATURE_ED25519)),
         );
 
         assert_eq!(
-            sign(TEST_MESSAGE.as_bytes(), PRIVATE_SECP256K1),
+            sign(
+                TEST_MESSAGE.as_bytes(),
+                &PrivateKey::new(PRIVATE_SECP256K1.to_string())
+            ),
             Ok(hex::encode_upper(SIGNATURE_SECP256K1)),
         );
     }
