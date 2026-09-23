@@ -22,7 +22,7 @@ use crate::{
         transactions::{Transaction, TransactionType},
         Model, XRPAmount, XRPLModelException,
     },
-    wallet::Wallet,
+    signer::RawSigner,
 };
 
 use alloc::borrow::Cow;
@@ -55,10 +55,10 @@ pub const LEDGER_OFFSET: u8 = 20;
 /// result is identical.
 const CONFIDENTIAL_MPT_FEE_MULTIPLIER: u64 = 10;
 
-pub async fn sign_and_submit<'a, 'b, T, F, C>(
+pub async fn sign_and_submit<'a, 'b, T, F, C, S>(
     transaction: &mut T,
     client: &'b C,
-    wallet: &Wallet,
+    signer: &S,
     autofill: bool,
     check_fee: bool,
 ) -> XRPLHelperResult<SubmitResult<'a>>
@@ -66,14 +66,15 @@ where
     F: IntoEnumIterator + Serialize + Debug + PartialEq,
     T: Transaction<'a, F> + Model + Serialize + DeserializeOwned + Clone + Debug,
     C: XRPLAsyncClient,
+    S: RawSigner + ?Sized,
 {
     if autofill {
-        autofill_and_sign(transaction, client, wallet, check_fee).await?;
+        autofill_and_sign(transaction, client, signer, check_fee).await?;
     } else {
         if check_fee {
             check_txn_fee(transaction, client).await?;
         }
-        sign(transaction, wallet, false)?;
+        sign(transaction, signer, false)?;
     }
     submit(transaction, client).await
 }
@@ -110,22 +111,23 @@ where
     Ok(())
 }
 
-pub async fn autofill_and_sign<'a, 'b, T, F, C>(
+pub async fn autofill_and_sign<'a, 'b, T, F, C, S>(
     transaction: &mut T,
     client: &'b C,
-    wallet: &Wallet,
+    signer: &S,
     check_fee: bool,
 ) -> XRPLHelperResult<()>
 where
     F: IntoEnumIterator + Serialize + Debug + PartialEq,
     T: Transaction<'a, F> + Model + Serialize + DeserializeOwned + Clone + Debug,
     C: XRPLAsyncClient,
+    S: RawSigner + ?Sized,
 {
     if check_fee {
         check_txn_fee(transaction, client).await?;
     }
     autofill(transaction, client, None).await?;
-    sign(transaction, wallet, false)?;
+    sign(transaction, signer, false)?;
 
     Ok(())
 }

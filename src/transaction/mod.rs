@@ -19,7 +19,7 @@ use crate::{
         transactions::Transaction,
         Model, XRPAmount,
     },
-    wallet::Wallet,
+    signer::RawSigner,
 };
 use embassy_futures::block_on;
 use serde::{de::DeserializeOwned, Serialize};
@@ -28,10 +28,10 @@ use strum::IntoEnumIterator;
 pub use crate::asynch::transaction::sign;
 pub use multisign::*;
 
-pub fn sign_and_submit<'a, 'b, T, F, C>(
+pub fn sign_and_submit<'a, 'b, T, F, C, S>(
     transaction: &mut T,
     client: &'b C,
-    wallet: &Wallet,
+    signer: &S,
     autofill: bool,
     check_fee: bool,
 ) -> XRPLHelperResult<Submit<'a>>
@@ -39,11 +39,12 @@ where
     F: IntoEnumIterator + Serialize + Debug + PartialEq,
     T: Transaction<'a, F> + Model + Serialize + DeserializeOwned + Clone + Debug,
     C: XRPLAsyncClient,
+    S: RawSigner + ?Sized,
 {
     block_on(async_sign_and_submit(
         transaction,
         client,
-        wallet,
+        signer,
         autofill,
         check_fee,
     ))
@@ -62,21 +63,22 @@ where
     block_on(async_autofill(transaction, client, signers_count))
 }
 
-pub fn autofill_and_sign<'a, 'b, T, F, C>(
+pub fn autofill_and_sign<'a, 'b, T, F, C, S>(
     transaction: &mut T,
     client: &'b C,
-    wallet: &Wallet,
+    signer: &S,
     check_fee: bool,
 ) -> XRPLHelperResult<()>
 where
     F: IntoEnumIterator + Serialize + Debug + PartialEq,
     T: Transaction<'a, F> + Model + Serialize + DeserializeOwned + Clone + Debug,
     C: XRPLAsyncClient,
+    S: RawSigner + ?Sized,
 {
     block_on(async_autofill_and_sign(
         transaction,
         client,
-        wallet,
+        signer,
         check_fee,
     ))
 }
@@ -93,7 +95,7 @@ where
 pub fn submit_and_wait<'a: 'b, 'b, T, F, C>(
     transaction: &'b mut T,
     client: &C,
-    wallet: Option<&Wallet>,
+    signer: Option<&dyn RawSigner>,
     check_fee: Option<bool>,
     autofill: Option<bool>,
 ) -> XRPLHelperResult<TxVersionMap<'b>>
@@ -105,7 +107,7 @@ where
     block_on(async_submit_and_wait(
         transaction,
         client,
-        wallet,
+        signer,
         check_fee,
         autofill,
     ))
