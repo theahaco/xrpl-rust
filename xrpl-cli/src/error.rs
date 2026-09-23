@@ -23,6 +23,8 @@ pub enum Error {
     Json(#[from] serde_json::Error),
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
+    #[error("Hex error: {0}")]
+    Hex(#[from] hex::FromHexError),
     #[error("Helper error: {0}")]
     Helper(#[from] xrpl::asynch::exceptions::XRPLHelperException),
     #[error("Core error: {0}")]
@@ -92,7 +94,7 @@ impl Error {
         ExitCode::from(match self {
             Error::UrlParse(_) | Error::Json(_) | Error::Other(_) => exit::USAGE,
             Error::Client(_) => exit::NETWORK,
-            Error::Wallet(_) | Error::Core(_) | Error::Io(_) => exit::USAGE,
+            Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) => exit::USAGE,
             Error::Helper(_) => exit::LEDGER,
             Error::Signer(signer) => match signer {
                 SignerError::NotFound { .. } => exit::CONFIG_NOT_FOUND,

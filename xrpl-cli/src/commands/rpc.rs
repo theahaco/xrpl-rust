@@ -59,7 +59,7 @@ impl Cmd {
         })?;
 
         // The node's result, and nothing else, on stdout.
-        output::artifact(&response.result)
+        output::artifact(&client::result_value(&response)?)
     }
 }
 
