@@ -7,6 +7,7 @@
 pub mod account;
 pub mod global;
 pub mod ledger;
+pub mod rpc;
 pub mod server;
 pub mod transaction;
 pub mod wallet;
@@ -18,10 +19,16 @@ use crate::error::Error;
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
+
+    /// Silence human-facing output on stderr. The machine artifact on stdout is
+    /// never silenced — it is the command's output, not its commentary.
+    #[arg(short = 'q', long, global = true)]
+    pub quiet: bool,
 }
 
 impl Cli {
     pub fn run(&self) -> Result<(), Error> {
+        crate::output::set_quiet(self.quiet);
         self.command.run()
     }
 }
@@ -47,6 +54,9 @@ pub enum Commands {
     /// Ledger operations
     #[command(subcommand)]
     Ledger(ledger::Cmd),
+
+    /// Call any rippled RPC directly
+    Rpc(rpc::Cmd),
 }
 
 impl Commands {
@@ -57,6 +67,7 @@ impl Commands {
             Commands::Transaction(cmd) => cmd.run(),
             Commands::Server(cmd) => cmd.run(),
             Commands::Ledger(cmd) => cmd.run(),
+            Commands::Rpc(cmd) => cmd.run(),
         }
     }
 }

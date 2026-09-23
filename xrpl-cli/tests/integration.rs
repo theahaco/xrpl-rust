@@ -38,15 +38,18 @@ mod cli_tests {
         // Common dummy data
         pub const DUMMY_TX_BLOB: &str = "1200002280000000240000000161400000000000000168400000000000000A732102F89EAEC7667B30F33D0687BBA86C3FE2A08CCA40A9186C5BDE2DAA6FA97A37D874473045022100F9ED357606932697A4FAB2BE7F222C21DD93CA4CF1F52F0D279145B9F6F51DCF02202B3E35791B1E4806D7BFA9989EABFB66FBEA7050D9916A2BADF4B777F8A3D8A981143FBCD300519B17A2F0A7ABAE8E4E7C59A3944F3E78114B61D3061367C35DF7BD7DBE97D5DD318C4B6C9F0F";
 
-        // Common error patterns
-        pub const COMMON_NETWORK_ERRORS: &[&str] = &[
-            "expected value",
-            "network",
-            "connection",
-            "timeout",
-            "there is no reactor running",
-            "must be called from the context of a Tokio",
-        ];
+        // Error strings a test may CHOOSE to tolerate, because it talks to a
+        // flaky public endpoint. This is no longer an ambient default: every
+        // call site that wants it now names it, so a new assertion is strict
+        // unless it opts out on purpose.
+        //
+        // The two reactor strings ("there is no reactor running", "must be
+        // called from the context of a Tokio 1.x runtime") are deliberately
+        // gone. A "Cannot start a runtime from within a runtime" panic is a bug
+        // in every command family (#11), and a suite configured to treat it as
+        // expected noise is worse than no suite.
+        pub const TOLERATED_PUBLIC_ENDPOINT_ERRORS: &[&str] =
+            &["expected value", "network", "connection", "timeout"];
     }
 
     /// Helper function to submit a transaction and check for successful submission
@@ -110,7 +113,13 @@ mod cli_tests {
         }
     }
 
-    /// Helper function to run a CLI command and check for expected output or known errors
+    /// Legacy assertion helper: tolerates the public-endpoint error strings on
+    /// top of whatever the call site names.
+    ///
+    /// The tolerance is opt-in by virtue of calling *this* function. Every test
+    /// here is scheduled for deletion with the commands it exercises, and new
+    /// tests use the harness in `tests/common`, which is strict by
+    /// construction — so nothing new can inherit this by accident.
     fn assert_cli_command(args: &[&str], expected_output: &str, known_errors: &[&str]) {
         let result = run_cli_command(args);
 
@@ -126,8 +135,7 @@ mod cli_tests {
             Err(err) => {
                 let err_str = err.to_string();
 
-                // Check if the error matches any of the common errors or the specific known errors
-                let matches_common_error = constants::COMMON_NETWORK_ERRORS
+                let matches_common_error = constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS
                     .iter()
                     .any(|&e| err_str.contains(e));
                 let matches_known_error = known_errors.iter().any(|&e| err_str.contains(e));
@@ -137,7 +145,7 @@ mod cli_tests {
                     "Unexpected error: {}. Expected one of: {:?} or common errors: {:?}",
                     err_str,
                     known_errors,
-                    constants::COMMON_NETWORK_ERRORS
+                    constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS
                 );
             }
         }
@@ -303,12 +311,20 @@ mod cli_tests {
 
     #[test]
     fn test_server_info() {
-        assert_cli_command(&["server", "info"], "Server info:", &[]);
+        assert_cli_command(
+            &["server", "info"],
+            "Server info:",
+            constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS,
+        );
     }
 
     #[test]
     fn test_ledger_data() {
-        assert_cli_command(&["ledger", "data", "--limit", "5"], "Ledger data:", &[]);
+        assert_cli_command(
+            &["ledger", "data", "--limit", "5"],
+            "Ledger data:",
+            constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS,
+        );
     }
 
     #[test]
