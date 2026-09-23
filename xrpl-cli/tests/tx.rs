@@ -53,13 +53,13 @@ fn new_payment(env: &TestEnv, drops: &str) -> String {
     let output = env.run(&[
         "tx",
         "new",
-        "Payment",
+        "payment",
         "--account",
         GENESIS_ADDRESS,
-        "--field",
-        &format!("Destination={DESTINATION}"),
-        "--field",
-        &format!("Amount={drops}"),
+        "--destination",
+        DESTINATION,
+        "--amount",
+        drops,
     ]);
     output.assert_success();
     output.stdout
@@ -213,7 +213,9 @@ fn test_a_world_readable_seed_file_is_refused() {
 #[test]
 fn test_a_bad_flag_exits_one() {
     let env = TestEnv::new();
-    env.run(&["tx", "new", "Payment", "--field", "no-equals-here"])
+    // A required field left out is a usage error, exit 1 — not clap's own
+    // default of 2, which would contradict this binary's documented table.
+    env.run(&["tx", "new", "payment", "--account", GENESIS_ADDRESS])
         .assert_code(1);
 }
 
@@ -400,13 +402,13 @@ fn test_a_tec_result_exits_three() {
         let output = env.run(&[
             "tx",
             "new",
-            "Payment",
+            "payment",
             "--account",
             GENESIS_ADDRESS,
-            "--field",
-            &format!("Destination={destination}"),
-            "--field",
-            "Amount=1000000",
+            "--destination",
+            &destination,
+            "--amount",
+            "1000000",
         ]);
         output.assert_success();
         output.stdout
@@ -521,4 +523,158 @@ fn test_mpt_issuance_id_is_derived_offline() {
     let id = output.stdout_json().as_str().expect("id").to_string();
     assert_eq!(id.len(), 48);
     assert!(id.starts_with("00000007"), "{id}");
+}
+
+#[test]
+fn test_all_eighty_two_transaction_types_are_reachable() {
+    let env = TestEnv::new();
+
+    let listed = env.run(&["tx", "fields", "--json"]);
+    listed.assert_success();
+
+    let types = listed.stdout_json();
+    let types = types.as_array().expect("an array of type names");
+    assert_eq!(
+        types.len(),
+        82,
+        "every real transaction type, minus the sentinel"
+    );
+
+    // Not a sample: every generated subcommand must render help. A command that
+    // panics or renders nothing is a broken surface no single-type test catches.
+    for name in types {
+        let name = name.as_str().expect("name");
+        let fields = env.run(&["tx", "fields", name]);
+        fields.assert_success();
+        assert!(
+            fields.stdout.contains("Fields:"),
+            "{name} rendered no field table"
+        );
+    }
+}
+
+#[test]
+fn test_a_type_with_no_rust_model_builds_a_transaction() {
+    let env = TestEnv::new();
+
+    // Sixteen types have no model in this crate. The wire format never routes
+    // through one, so they work anyway — which is the whole bet.
+    let output = env.run(&[
+        "tx",
+        "new",
+        "delegate-set",
+        "--account",
+        GENESIS_ADDRESS,
+        "--authorize",
+        DESTINATION,
+        "--permissions",
+        "[]",
+    ]);
+    output.assert_success();
+
+    assert_eq!(output.stdout_json()["TransactionType"], "DelegateSet");
+}
+
+#[test]
+fn test_a_misspelled_field_is_refused_with_a_suggestion() {
+    let env = TestEnv::new();
+
+    // The binary codec silently skips a key it does not know, so without this
+    // check `--field Desination=…` signs and submits a transaction that pays
+    // nobody, and nothing anywhere reports a problem.
+    let output = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        GENESIS_ADDRESS,
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "1000000",
+        "--field",
+        "Desination=rX",
+    ]);
+
+    output.assert_code(1);
+    output.assert_stderr_contains("has no field");
+    output.assert_stderr_contains("destination");
+}
+
+#[test]
+fn test_named_flags_resolve_to_the_integer_the_ledger_wants() {
+    let env = TestEnv::new();
+
+    let output = env.run(&[
+        "tx",
+        "new",
+        "mptoken-issuance-create",
+        "--account",
+        GENESIS_ADDRESS,
+        "--flag",
+        "tfMPTCanTransfer",
+        "--flag",
+        "tfMPTCanLock",
+        "--flag",
+        "tfMPTCanClawback",
+    ]);
+    output.assert_success();
+
+    // Flags is always an integer on the wire; the names exist only here.
+    assert_eq!(output.stdout_json()["Flags"], 98);
+}
+
+#[test]
+fn test_the_generated_surface_round_trips_through_the_ledger() {
+    let env = TestEnv::new();
+    require_standalone!(&env);
+    let _guard = common::blockchain_lock();
+
+    let seed = seed_file(&env);
+
+    // Built entirely from generated flags, with no --field anywhere.
+    let payment = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        GENESIS_ADDRESS,
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "400000000",
+        "--memo",
+        "generated-surface",
+    ]);
+    payment.assert_success();
+
+    let filled = env.run_with_stdin(
+        &["tx", "autofill", "--url", STANDALONE_URL],
+        payment.stdout.as_bytes(),
+    );
+    filled.assert_success();
+
+    let signed = env.run_with_stdin(
+        &["tx", "sign", "--seed-file", seed.to_str().unwrap()],
+        filled.stdout.as_bytes(),
+    );
+    signed.assert_success();
+
+    let submitted = env.run_with_stdin(
+        &[
+            "tx",
+            "submit",
+            "--wait",
+            "--accept-ledger",
+            "--url",
+            STANDALONE_URL,
+        ],
+        signed.stdout.as_bytes(),
+    );
+    submitted.assert_success();
+
+    let result = submitted.stdout_json();
+    assert_eq!(result["meta"]["TransactionResult"], "tesSUCCESS");
+    // The memo sugar produced the array shape the ledger accepted.
+    assert!(result["Memos"].as_array().is_some_and(|m| m.len() == 1));
 }
