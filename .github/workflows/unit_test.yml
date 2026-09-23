@@ -14,6 +14,10 @@ jobs:
   unit_test:
     name: Unit Test
     runs-on: ubuntu-latest
+    # Lifted to the job so the Codecov step's `if` can test it: the `secrets`
+    # context is not available in a step-level `if`, only `env` is.
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -78,8 +82,14 @@ jobs:
             --fail-under-regions 85 \
             --fail-under-functions 73
 
+      # Skipped when no token is configured. Codecov refuses tokenless uploads
+      # for this repo ("Token required - not valid tokenless upload"), so the
+      # step would fail every run and take a green test suite down with it.
+      # Coverage reporting is not the signal the tests are; once CODECOV_TOKEN
+      # exists, fail_ci_if_error makes a genuine upload failure loud again.
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
+        if: ${{ env.CODECOV_TOKEN != '' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
