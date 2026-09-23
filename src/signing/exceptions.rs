@@ -19,4 +19,8 @@ pub enum XRPLSignTransactionException {
     FeeTooHigh(String),
     #[error("Wallet is required to sign transaction")]
     WalletRequired,
+    #[error(
+        "The signer already submitted this transaction ({0}); submitting again would duplicate it"
+    )]
+    AlreadySubmitted(String),
 }

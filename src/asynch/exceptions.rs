@@ -47,6 +47,12 @@ pub enum XRPLHelperException {
     #[cfg(all(feature = "core", feature = "models", feature = "wallet"))]
     #[error("XRPL MultiSign error: {0}")]
     XRPLMultiSignError(#[from] XRPLMultisignException),
+    // Gated to match its neighbours. #14 wants every `#[cfg(feature = ...)]`
+    // off this enum's variants; that sweep should take this one with the rest
+    // rather than leaving one variant gated differently from the others.
+    #[cfg(feature = "core")]
+    #[error("XRPL Signer error: {0}")]
+    XRPLSignerError(#[from] crate::signer::XRPLSignerException),
     #[cfg(all(feature = "core", feature = "models", feature = "wallet"))]
     #[error("XRPL Sign Transaction error: {0}")]
     XRPLSignTransactionError(#[from] XRPLSignTransactionException),

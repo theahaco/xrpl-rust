@@ -141,6 +141,39 @@ mod tests {
     }
 }
 
+/// An in-memory key is the simplest possible signing backend: it frames the
+/// payload and signs it, with no I/O and no human in the loop.
+///
+/// Every later backend — a seed read from a file, an age-encrypted blob, an OS
+/// credential store — is this plus a way of getting at the key, which is exactly
+/// why the trait is the seam rather than `Wallet` itself.
+#[cfg(feature = "core")]
+impl crate::signer::RawSigner for Wallet {
+    fn public_key(&self) -> &str {
+        &self.public_key
+    }
+
+    fn algorithm(&self) -> CryptoAlgorithm {
+        self.private_key.algorithm()
+    }
+
+    fn classic_address(&self) -> crate::signer::XRPLSignerResult<String> {
+        // Already derived at construction; no need to re-derive it per signature.
+        Ok(self.classic_address.clone())
+    }
+
+    fn sign(
+        &self,
+        domain: crate::signer::SigningDomain<'_>,
+        payload: &[u8],
+    ) -> crate::signer::XRPLSignerResult<crate::signer::SignOutcome> {
+        let framed = crate::signer::frame(&domain, payload)?;
+        let signature = crate::core::keypairs::sign(&framed, &self.private_key)?;
+
+        Ok(crate::signer::SignOutcome::Signed(signature))
+    }
+}
+
 impl Display for Wallet {
     /// Returns a string representation of a Wallet.
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {

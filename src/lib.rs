@@ -47,6 +47,11 @@ pub mod ledger;
 pub mod macros;
 #[cfg(feature = "models")]
 pub mod models;
+// Gated on `core` alone, deliberately: the whole surface is `&[u8]` in and hex
+// out, so it is reachable from a `--features core` consumer and stays
+// `no_std`-safe. Backends that need std, a filesystem or a human live above it.
+#[cfg(feature = "core")]
+pub mod signer;
 #[cfg(all(feature = "core", feature = "models", feature = "wallet"))]
 pub mod signing;
 #[cfg(feature = "helpers")]

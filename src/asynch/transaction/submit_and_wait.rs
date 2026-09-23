@@ -23,7 +23,7 @@ use crate::{
         transactions::Transaction,
         Model,
     },
-    wallet::Wallet,
+    signer::RawSigner,
 };
 
 /// Build a `SubmissionFailed` exception. Extracted so all four failure sites
@@ -42,7 +42,7 @@ fn submission_failed(
 pub async fn submit_and_wait<'a: 'b, 'b, T, F, C>(
     transaction: &'b mut T,
     client: &C,
-    wallet: Option<&Wallet>,
+    signer: Option<&dyn RawSigner>,
     check_fee: Option<bool>,
     autofill: Option<bool>,
 ) -> XRPLHelperResult<TxVersionMap<'b>>
@@ -51,7 +51,7 @@ where
     F: IntoEnumIterator + Serialize + Debug + PartialEq + Debug + Clone + 'a,
     C: XRPLAsyncClient,
 {
-    get_signed_transaction(transaction, client, wallet, check_fee, autofill).await?;
+    get_signed_transaction(transaction, client, signer, check_fee, autofill).await?;
     send_reliable_submission(transaction, client).await
 }
 
@@ -174,7 +174,7 @@ where
 async fn get_signed_transaction<'a, T, F, C>(
     transaction: &mut T,
     client: &C,
-    wallet: Option<&Wallet>,
+    signer: Option<&dyn RawSigner>,
     do_check_fee: Option<bool>,
     do_autofill: Option<bool>,
 ) -> XRPLHelperResult<()>
@@ -186,7 +186,7 @@ where
     if transaction.get_common_fields().is_signed() {
         return Ok(());
     }
-    if let Some(wallet) = wallet {
+    if let Some(signer) = signer {
         if let Some(check_fee) = do_check_fee {
             if check_fee {
                 check_txn_fee(transaction, client).await?;
@@ -198,9 +198,9 @@ where
             }
         }
         if transaction.get_common_fields().signers.as_ref().is_some() {
-            sign(transaction, wallet, true)
+            sign(transaction, signer, true)
         } else {
-            sign(transaction, wallet, false)
+            sign(transaction, signer, false)
         }
     } else {
         Err(XRPLSignTransactionException::WalletRequired.into())
