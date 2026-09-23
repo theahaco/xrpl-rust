@@ -161,6 +161,7 @@ jobs:
           cargo llvm-cov --no-report --release \
             -p xrpl-cli --features integration \
             --test integration \
+            --test rpc \
             -- --test-threads=1
         env:
           RUST_BACKTRACE: 1
