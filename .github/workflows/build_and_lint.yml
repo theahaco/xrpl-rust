@@ -121,3 +121,29 @@ jobs:
 
       - name: Test
         run: cargo test -p xrpl-cli --features secure-store
+
+      # The store is env-overridable so that tests never touch a real one. A
+      # test that forgot to set `XRPL_DATA_DIR` would pass here and quietly
+      # write into the runner's home directory — and, on a developer's machine,
+      # into theirs.
+      - name: Assert nothing was written outside the test directories
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          stray=0
+          # `${VAR:-}` throughout: APPDATA is unset off Windows, and `set -u`
+          # would make that an error rather than a skipped path.
+          for path in "${HOME:-}/.local/share/xrpl" "${HOME:-}/.config/xrpl" \
+                      "${HOME:-}/Library/Application Support/xrpl" \
+                      "${APPDATA:-}/xrpl" "${LOCALAPPDATA:-}/xrpl"; do
+            # An unset base leaves just "/xrpl", which is not a real path.
+            if [[ "$path" == /xrpl ]]; then continue; fi
+            if [[ -e "$path" ]]; then
+              echo "::error::a test wrote to $path"
+              ls -la "$path" || true
+              stray=1
+            fi
+          done
+          exit "$stray"
+

@@ -40,6 +40,13 @@ pub struct Cmd {
     /// so it is not in a dotfiles sync or a backup of the home directory.
     #[arg(long)]
     pub secure_store: bool,
+
+    /// Enrol without confirming the derived address.
+    ///
+    /// The confirmation only appears when there is a terminal, so a script
+    /// never needs this — it is for a person who would rather not be asked.
+    #[arg(long, short = 'y')]
+    pub yes: bool,
 }
 
 impl Cmd {
@@ -56,7 +63,7 @@ impl Cmd {
 
         if let Some(seed) = self.read_seed()? {
             let mut seed = seed;
-            let record = super::enrol::enrol(&store, &self.id, &seed, self.backend())?;
+            let record = super::enrol::enrol(&store, &self.id, &seed, self.enrolment())?;
             seed.zeroize();
 
             output::note(format!(
@@ -113,11 +120,14 @@ impl Cmd {
         output::artifact(&super::describe(&self.id, &record))
     }
 
-    fn backend(&self) -> super::enrol::Backend {
-        if self.secure_store {
-            super::enrol::Backend::SecureStore
-        } else {
-            super::enrol::Backend::EncryptedFile
+    fn enrolment(&self) -> super::enrol::Enrolment {
+        super::enrol::Enrolment {
+            backend: if self.secure_store {
+                super::enrol::Backend::SecureStore
+            } else {
+                super::enrol::Backend::EncryptedFile
+            },
+            confirm: !self.yes,
         }
     }
 

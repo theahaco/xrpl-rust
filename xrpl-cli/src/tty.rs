@@ -68,6 +68,32 @@ pub fn prompt_secret(prompt: &str) -> Result<String, Error> {
     rpassword::prompt_password(format!("{prompt}: ")).map_err(Error::Io)
 }
 
+/// Ask a yes/no question on the terminal.
+///
+/// Anything but an explicit yes is a no, including an empty line: a prompt
+/// whose default is "go ahead" is one people learn to hit return on.
+///
+/// The caller checks [`is_interactive`] first and decides what a missing
+/// terminal means — for enrolment it means "a script is running, proceed",
+/// which is the opposite of what it means for a passphrase.
+pub fn confirm(question: &str) -> Result<bool, Error> {
+    use std::io::{BufRead, BufReader};
+
+    let mut out = terminal_for_writing()?;
+    write!(out, "{question} [y/N]: ").map_err(Error::Io)?;
+    out.flush().map_err(Error::Io)?;
+
+    let mut line = String::new();
+    BufReader::new(terminal_for_reading()?)
+        .read_line(&mut line)
+        .map_err(Error::Io)?;
+
+    Ok(matches!(
+        line.trim().to_ascii_lowercase().as_str(),
+        "y" | "yes"
+    ))
+}
+
 /// Open a value in the user's editor and read back what they saved.
 ///
 /// The editor's three descriptors are bound to `/dev/tty`, not inherited.

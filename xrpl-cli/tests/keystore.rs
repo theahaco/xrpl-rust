@@ -563,3 +563,76 @@ fn test_backends_needs_no_store_and_no_network() {
     let env = TestEnv::new();
     common::assert_offline(&env, &["key", "backends"]).assert_success();
 }
+
+/// A secure-store record, written as another machine would have written it.
+fn write_secure_store_record(env: &TestEnv, id: &str) {
+    std::fs::create_dir_all(env.data_dir().join("keys")).expect("create");
+    std::fs::write(
+        env.data_dir().join(format!("keys/{id}.toml")),
+        format!(
+            r#"version = 1
+kind = "key"
+public_key = "ED9434799226374926EDA3B54B1B461B4ABF7237962EAE18528FEA67595397FA32"
+algorithm = "ed25519"
+classic_address = "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD"
+source = "secure-store"
+entry = "{id}"
+"#
+        ),
+    )
+    .expect("write");
+}
+
+#[test]
+fn test_listing_and_showing_never_touch_the_credential_store() {
+    let env = env_with_passphrase();
+
+    // The entry named here does not exist in any credential store. If these
+    // commands looked one up, they would fail — or, on a machine with no
+    // Secret Service, sit for the full 30-second deadline first. Answering
+    // instantly and correctly is the assertion.
+    write_secure_store_record(&env, "not-in-any-store");
+
+    env.run(&[
+        "account",
+        "add",
+        "remote",
+        "--address",
+        "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD",
+        "--network-id",
+        "0",
+        "--key",
+        "not-in-any-store",
+    ])
+    .assert_success();
+
+    let started = std::time::Instant::now();
+
+    for command in [
+        vec!["key", "ls"],
+        vec!["key", "show", "not-in-any-store"],
+        vec!["account", "ls"],
+        vec!["account", "show", "remote"],
+        vec!["account", "doctor", "remote"],
+    ] {
+        env.run(&command).assert_success();
+    }
+
+    // Well under the credential store's 30-second deadline, so none of them
+    // can have waited on one.
+    assert!(
+        started.elapsed() < std::time::Duration::from_secs(10),
+        "took {:?}: something reached for the credential store",
+        started.elapsed()
+    );
+}
+
+#[test]
+fn test_enrolling_without_a_terminal_does_not_stop_to_ask() {
+    let env = env_with_passphrase();
+
+    // The confirmation is for a person. A script has no terminal, and a
+    // command that blocked here would hang CI rather than fail it.
+    enrol_genesis(&env, "genesis");
+    env.run(&["key", "show", "genesis"]).assert_success();
+}
