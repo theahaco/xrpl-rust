@@ -11,18 +11,45 @@
 //! goes through the same autofill, signing and submission as every other
 //! transaction rather than through a bespoke one-shot command.
 
+pub mod add;
 pub mod channels;
 pub mod currencies;
+pub mod doctor;
 pub mod info;
 pub mod lines;
+pub mod ls;
 pub mod nfts;
 pub mod objects;
+pub mod rm;
+pub mod show;
+pub mod subject;
 pub mod tx;
+pub mod r#use;
 
 use crate::error::Error;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
+    // -- local records: no network, ever -------------------------------------
+    /// Record an account (local record, no network)
+    Add(add::Cmd),
+
+    /// List account records (local records, no network)
+    Ls(ls::Cmd),
+
+    /// Show one account record (local record, no network)
+    Show(show::Cmd),
+
+    /// Forget an account record (local record, no network)
+    Rm(rm::Cmd),
+
+    /// Choose the default account (local record, no network)
+    Use(r#use::Cmd),
+
+    /// Report what is wrong with a record (local; --ledger adds a node check)
+    Doctor(doctor::Cmd),
+
+    // -- ledger queries ------------------------------------------------------
     /// Get account info from the ledger (ledger query)
     Info(info::Cmd),
 
@@ -52,6 +79,12 @@ pub enum Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
+            Cmd::Add(cmd) => cmd.run(),
+            Cmd::Ls(cmd) => cmd.run(),
+            Cmd::Show(cmd) => cmd.run(),
+            Cmd::Rm(cmd) => cmd.run(),
+            Cmd::Use(cmd) => cmd.run(),
+            Cmd::Doctor(cmd) => cmd.run(),
             Cmd::Info(cmd) => cmd.run(),
             Cmd::Tx(cmd) => cmd.run(),
             Cmd::Objects(cmd) => cmd.run(),
@@ -61,4 +94,17 @@ impl Cmd {
             Cmd::Nfts(cmd) => cmd.run(),
         }
     }
+}
+
+/// Render an account record for a human or for a script.
+pub fn describe(alias: &str, record: &crate::store::AccountRecord) -> serde_json::Value {
+    serde_json::json!({
+        "alias": alias,
+        "address": record.address,
+        "network_id": record.network_id,
+        "tag": record.tag,
+        "keys": record.keys,
+        "default_signer": record.default_signer,
+        "watch_only": record.is_watch_only(),
+    })
 }

@@ -16,6 +16,7 @@ pub mod commands;
 pub mod error;
 pub mod output;
 pub mod signer;
+pub mod store;
 pub mod tty;
 
 pub use error::{Error, SignerError};

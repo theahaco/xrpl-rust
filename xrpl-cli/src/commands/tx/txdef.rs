@@ -46,12 +46,11 @@ const NOT_GENERATED: &[&str] = &["PreviousTxnID"];
 /// `--sequence` mandatory on all 82 subcommands, which contradicts `tx autofill`
 /// outright — the whole point of that stage is that a node supplies them.
 ///
-/// `Account` is deliberately not in this list. It stays required until there is
-/// somewhere else for it to come from; when the account store lands it becomes
-/// required-after-resolution, satisfiable by `XRPL_ACCOUNT` or a default.
-/// Relaxing it before then would only move the failure to `tx autofill`, which
-/// reports it as a transaction with no `Account` rather than as a missing flag.
-const NEVER_REQUIRED: &[&str] = &["Fee", "Sequence", "LastLedgerSequence"];
+/// `Account` is here now that the account store exists: it is
+/// required-*after-resolution*, satisfiable by `--account`, `XRPL_ACCOUNT` or
+/// the configured default. When none of the three resolve, the resolver is what
+/// reports it, and it can say which sources it tried.
+const NEVER_REQUIRED: &[&str] = &["Fee", "Sequence", "LastLedgerSequence", "Account"];
 
 /// Acronyms that must not be split when a field name is kebab-cased.
 ///
@@ -489,10 +488,9 @@ mod tests {
             assert!(!field.required, "{name} must not be a required flag");
         }
 
-        // `Account` is the exception: nothing else can supply it yet, so a
-        // missing one should be a missing flag rather than a confusing error
-        // two stages downstream.
-        assert!(payment.field("Account").expect("Account").required);
+        // `Account` joined them once the store gave it somewhere else to come
+        // from: the resolver reports a missing one, and names what it tried.
+        assert!(!payment.field("Account").expect("Account").required);
     }
 
     #[test]

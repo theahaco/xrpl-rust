@@ -263,23 +263,38 @@ fn wait_with_timeout(mut child: Child, timeout: Duration, args: &[&str]) -> CliO
 
 /// Run a command with no reachable node, and assert it succeeded anyway.
 ///
-/// The offline stages of the pipeline, and the local record commands, must open
-/// no socket at all. Pointing them at a closed port turns "this quietly reached
-/// the network" into a failure rather than a slow test.
+/// Two ways a command can pass. Most take `--url`, so pointing them at a closed
+/// port turns "this quietly reached the network" into a failure rather than a
+/// slow test. A few — the local record commands — have no `--url` at all, and
+/// clap rejecting the flag is *stronger* evidence than a refused connection:
+/// the command has no way to name a node, so it cannot have contacted one.
 pub fn assert_offline(env: &TestEnv, args: &[&str]) -> CliOutput {
     // Port 1 is reserved and nothing listens on it.
     let mut with_url: Vec<&str> = args.to_vec();
     with_url.extend_from_slice(&["--url", "http://127.0.0.1:1"]);
 
     let output = env.run(&with_url);
-    assert!(
-        output.success(),
+    if output.success() {
+        return output;
+    }
+
+    if output.stderr.contains("unexpected argument '--url'") {
+        // No way to name a node. Run it as it is actually invoked.
+        let without = env.run(args);
+        assert!(
+            without.success(),
+            "`xrpl {}` failed with no node involved at all\nstderr:\n{}",
+            args.join(" "),
+            without.stderr
+        );
+        return without;
+    }
+
+    panic!(
         "`xrpl {}` touched the network: it must work with no node reachable\nstderr:\n{}",
         args.join(" "),
         output.stderr
     );
-
-    output
 }
 
 fn is_dir_empty(dir: &Path) -> bool {

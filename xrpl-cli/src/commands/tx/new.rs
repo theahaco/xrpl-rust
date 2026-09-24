@@ -186,6 +186,12 @@ impl clap::FromArgMatches for Cmd {
     }
 }
 
+/// Resolve `--account` through the store, applying the ladder and its guards.
+fn resolve_account(explicit: Option<&str>) -> Result<String, Error> {
+    let store = crate::store::Store::from_env()?;
+    Ok(crate::store::resolve::account(&store, explicit)?.address)
+}
+
 /// Assemble the transaction JSON from what was typed.
 fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Value, Error> {
     let mut object = Map::new();
@@ -196,11 +202,24 @@ fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Val
 
     for field in definition.generated_fields() {
         if let Some(raw) = matches.get_one::<String>(field.flag) {
-            object.insert(
-                field.name.to_string(),
-                value::parse(field.flag, field.serialization_type, raw)?,
-            );
+            // `Account` is the one field that resolves an alias. Every other
+            // address — a destination, an issuer, a signer entry — is literal,
+            // which is what keeps "names resolve as values, never as authority"
+            // true. It also never selects a key.
+            let parsed = if field.name == "Account" {
+                Value::String(resolve_account(Some(raw))?)
+            } else {
+                value::parse(field.flag, field.serialization_type, raw)?
+            };
+
+            object.insert(field.name.to_string(), parsed);
         }
+    }
+
+    // `Account` is required, so it is either given or inherited. The ladder and
+    // both its guards live in one place rather than here.
+    if !object.contains_key("Account") && definition.field("Account").is_some() {
+        object.insert("Account".into(), Value::String(resolve_account(None)?));
     }
 
     if let Some(entries) = matches
