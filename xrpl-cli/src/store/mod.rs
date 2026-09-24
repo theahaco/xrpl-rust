@@ -1,6 +1,7 @@
 //! Reading and writing account and key records.
 
 pub mod journal;
+pub mod keychain;
 pub mod locator;
 pub mod record;
 pub mod resolve;
@@ -131,6 +132,35 @@ impl Store {
                 Error::Io(error)
             }
         })
+    }
+
+    /// Read the encrypted blob a key record points at, wherever it lives.
+    ///
+    /// One reader for every backend, so signing, `key export` and `account
+    /// doctor` cannot disagree about where a record's secret is or what its
+    /// absence means.
+    pub fn read_key_secret(&self, id: &str, record: &KeyRecord) -> Result<String, Error> {
+        match &record.source {
+            KeySource::EncryptedFile { path } => self.read_secret(path),
+            KeySource::SecureStore { entry } => keychain::load(entry),
+            // Exit 6, not 4: the record is here, and only the secret is not.
+            KeySource::WatchOnly => Err(SignerError::Unavailable(format!(
+                "{id} is watch-only: it has a public key and no secret"
+            ))
+            .into()),
+        }
+    }
+
+    /// Delete the secret a key record points at, wherever it lives.
+    ///
+    /// Irreversible, and separate from forgetting the record: `key rm` only
+    /// does this when asked.
+    pub fn remove_key_secret(&self, record: &KeyRecord) -> Result<(), Error> {
+        match &record.source {
+            KeySource::EncryptedFile { path } => self.remove_secret(path),
+            KeySource::SecureStore { entry } => keychain::remove(entry),
+            KeySource::WatchOnly => Ok(()),
+        }
     }
 
     /// Whether a recorded secret is present here.

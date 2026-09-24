@@ -106,6 +106,18 @@ impl Cmd {
                              this is expected."
                         ))
                     }
+                    // Deliberately not looked up. Reading a credential-store
+                    // entry prompts on macOS, and a diagnostic that raises a
+                    // dialog per key is one people stop running.
+                    KeySource::SecureStore { entry }
+                        if !crate::store::keychain::is_compiled_in() =>
+                    {
+                        findings.push(format!(
+                            "key {key_id} is in the OS credential store ({entry}), and this \
+                             binary was built without the secure-store feature. It can be \
+                             listed here and not used."
+                        ))
+                    }
                     _ => {}
                 },
             }

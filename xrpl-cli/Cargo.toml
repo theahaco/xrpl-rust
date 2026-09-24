@@ -25,6 +25,21 @@ clap = { version = "4.5.39", features = ["derive", "env"] }
 # reviewed, specified format, rather than a hand-rolled one.
 age = { version = "0.11", default-features = false, features = ["armor"] }
 hex = "0.4.3"
+# Choosing a `critical-section` implementation is the final binary's job, and
+# this is the final binary. `xrpl-rust` depends on `embassy-sync`
+# unconditionally — its websocket client uses `CriticalSectionRawMutex` — so the
+# symbols are here whether or not this CLI ever reaches that code. The GNU and
+# Mach-O linkers drop them as unreachable; MSVC's does not, and the Windows
+# build fails with `unresolved external symbol _critical_section_1_0_acquire`.
+# `std` is the right implementation for a hosted binary.
+#
+# The cleaner fix is in the library, where `embassy-sync` should be behind the
+# `embassy-rt` feature rather than unconditional. That is a separate change.
+critical-section = { version = "1.2", features = ["std"] }
+# The OS credential store, behind the `secure-store` feature. Optional because
+# it pulls a platform backend — and on Linux, a D-Bus client — into a build that
+# does not need one: the encrypted-file backend works everywhere.
+keyring = { version = "4.2", optional = true }
 rand = "0.8.5"
 # Reads a secret from the controlling terminal with echo off, and restores the
 # terminal state on the way out. The alternative is a hand-rolled `termios`
@@ -47,5 +62,9 @@ tempfile = "3"
 
 [features]
 default = []
+# Keep the passphrase-encrypted blob in the OS credential store rather than in
+# a file. The blob is encrypted either way — see `store::secret` — so this
+# changes where it lives, not what it is.
+secure-store = ["dep:keyring", "keyring/v1"]
 # Integration tests drive the built binary against a standalone node.
 integration = []

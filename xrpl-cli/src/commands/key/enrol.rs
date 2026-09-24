@@ -9,22 +9,54 @@ use zeroize::Zeroize;
 
 use crate::error::Error;
 use crate::signer::stored::PASSPHRASE_ENV;
-use crate::store::{secret, KeyRecord, KeySource, Store};
+use crate::store::{keychain, secret, KeyRecord, KeySource, Store};
 use crate::tty;
 
-/// Encrypt a seed and write both halves of the record.
-pub fn enrol(store: &Store, id: &str, seed: &str) -> Result<KeyRecord, Error> {
-    let wallet = Wallet::new(seed, 0)?;
-    let passphrase = passphrase_for_new_key(id)?;
+/// Where the encrypted blob goes.
+///
+/// Only *where*. The blob is the same either way — encrypting first is what
+/// makes the location a swappable detail rather than the security story; see
+/// [`crate::store::secret`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Backend {
+    /// A file in the data directory. Works on every OS, needs no daemon.
+    #[default]
+    EncryptedFile,
+    /// The OS credential store, so the blob is not on the filesystem at all.
+    SecureStore,
+}
 
+/// Encrypt a seed and write both halves of the record.
+pub fn enrol(store: &Store, id: &str, seed: &str, backend: Backend) -> Result<KeyRecord, Error> {
+    let wallet = Wallet::new(seed, 0)?;
+
+    // Before the passphrase prompt, not after: asking someone to type a
+    // passphrase twice and *then* saying the backend is unavailable wastes the
+    // one part of this that needs a human.
+    if backend == Backend::SecureStore {
+        keychain::probe()?;
+    }
+
+    let passphrase = passphrase_for_new_key(id)?;
     let blob = secret::encrypt(seed, &passphrase)?;
-    let path = store.write_secret(id, &blob)?;
+
+    let source = match backend {
+        Backend::EncryptedFile => KeySource::EncryptedFile {
+            path: store.write_secret(id, &blob)?,
+        },
+        Backend::SecureStore => {
+            keychain::store(id, &blob)?;
+            KeySource::SecureStore {
+                entry: id.to_string(),
+            }
+        }
+    };
 
     let record = KeyRecord::new(
         wallet.public_key.clone(),
         format!("{:?}", wallet.algorithm()).to_lowercase(),
         wallet.classic_address.clone(),
-        KeySource::EncryptedFile { path },
+        source,
     );
 
     store.write_key(id, &record)?;

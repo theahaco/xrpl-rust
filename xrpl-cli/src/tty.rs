@@ -16,13 +16,37 @@ use std::process::Command;
 
 use crate::error::{Error, SignerError};
 
+/// The terminal, by the name this platform gives it.
+///
+/// Two names on Windows, because its console is not one bidirectional device:
+/// `CONIN$` and `CONOUT$` are separate, and opening `CONOUT$` for reading fails.
+#[cfg(unix)]
+const TERMINAL: (&str, &str) = ("/dev/tty", "/dev/tty");
+#[cfg(windows)]
+const TERMINAL: (&str, &str) = ("CONIN$", "CONOUT$");
+
 /// Whether a human could answer a prompt right now.
 ///
 /// Checks for a controlling terminal rather than for stdin, deliberately: stdin
 /// is a pipe in every pipeline, and that says nothing about whether a person is
 /// watching.
+///
+/// On a platform with neither a `/dev/tty` nor a Windows console there is
+/// nothing to prompt on, so every caller takes its non-interactive path — which
+/// is the honest answer rather than a build failure.
 pub fn is_interactive() -> bool {
-    std::io::stderr().is_terminal() && File::open("/dev/tty").is_ok()
+    if !std::io::stderr().is_terminal() {
+        return false;
+    }
+
+    #[cfg(any(unix, windows))]
+    {
+        File::open(TERMINAL.0).is_ok()
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        false
+    }
 }
 
 /// Prompt on the terminal and read one line back with echo disabled.
@@ -33,7 +57,7 @@ pub fn prompt_secret(prompt: &str) -> Result<String, Error> {
     if !is_interactive() {
         return Err(SignerError::Declined(format!(
             "{prompt}: no controlling terminal, and stdin carries the transaction. \
-             Use --seed-file or XRPL_SEED."
+             Use --seed-file, XRPL_SEED, or XRPL_PASSPHRASE."
         ))
         .into());
     }
@@ -90,9 +114,9 @@ pub fn edit(contents: &str, suffix: &str) -> Result<String, Error> {
     let status = Command::new(program)
         .args(words)
         .arg(file.path())
-        .stdin(File::open("/dev/tty").map_err(Error::Io)?)
-        .stdout(tty_for_writing()?)
-        .stderr(tty_for_writing()?)
+        .stdin(terminal_for_reading()?)
+        .stdout(terminal_for_writing()?)
+        .stderr(terminal_for_writing()?)
         .status()
         .map_err(|error| {
             Error::other(format!(
@@ -128,11 +152,30 @@ fn editor_command() -> String {
     "vi".to_string()
 }
 
-fn tty_for_writing() -> Result<File, Error> {
+#[cfg(any(unix, windows))]
+fn terminal_for_reading() -> Result<File, Error> {
+    File::open(TERMINAL.0).map_err(Error::Io)
+}
+
+#[cfg(any(unix, windows))]
+fn terminal_for_writing() -> Result<File, Error> {
     OpenOptions::new()
         .write(true)
-        .open("/dev/tty")
+        .open(TERMINAL.1)
         .map_err(Error::Io)
+}
+
+// Unreachable in practice — `edit` returns before here when `is_interactive`
+// is false, which it always is on such a platform — but the code has to compile
+// for the crate to build there at all.
+#[cfg(not(any(unix, windows)))]
+fn terminal_for_reading() -> Result<File, Error> {
+    Err(Error::other("this platform has no terminal device"))
+}
+
+#[cfg(not(any(unix, windows)))]
+fn terminal_for_writing() -> Result<File, Error> {
+    Err(Error::other("this platform has no terminal device"))
 }
 
 #[cfg(test)]
