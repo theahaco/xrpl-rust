@@ -25,6 +25,8 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("Hex error: {0}")]
     Hex(#[from] hex::FromHexError),
+    #[error("TOML error: {0}")]
+    Toml(#[from] toml::ser::Error),
     #[error("Helper error: {0}")]
     Helper(#[from] xrpl::asynch::exceptions::XRPLHelperException),
     #[error("Core error: {0}")]
@@ -94,7 +96,9 @@ impl Error {
         ExitCode::from(match self {
             Error::UrlParse(_) | Error::Json(_) | Error::Other(_) => exit::USAGE,
             Error::Client(_) => exit::NETWORK,
-            Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) => exit::USAGE,
+            Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) | Error::Toml(_) => {
+                exit::USAGE
+            }
             Error::Helper(_) => exit::LEDGER,
             Error::Signer(signer) => match signer {
                 SignerError::NotFound { .. } => exit::CONFIG_NOT_FOUND,

@@ -8,9 +8,8 @@ use crate::{client, output};
 /// List an account's payment channels.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// The account address
-    #[arg(long)]
-    pub address: String,
+    #[command(flatten)]
+    pub subject: super::subject::AccountArg,
 
     /// Destination account to filter channels
     #[arg(long)]
@@ -27,7 +26,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
-        let request = AccountChannels::builder(self.address.clone())
+        let request = AccountChannels::builder(self.subject.address()?)
             .maybe_destination_account(self.destination_account.as_deref())
             .limit(self.limit)
             .build();

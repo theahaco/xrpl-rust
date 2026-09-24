@@ -8,9 +8,8 @@ use crate::{client, output};
 /// List the NFTs an account holds.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// The account address
-    #[arg(long)]
-    pub address: String,
+    #[command(flatten)]
+    pub subject: super::subject::AccountArg,
 
     #[command(flatten)]
     pub network: NetworkArgs,
@@ -19,7 +18,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
-        let request = AccountNfts::builder(self.address.clone()).build();
+        let request = AccountNfts::builder(self.subject.address()?).build();
 
         output::response(client.request(request.into()), "Account NFTs")
     }

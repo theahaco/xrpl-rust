@@ -163,6 +163,7 @@ jobs:
             --test integration \
             --test rpc \
             --test tx \
+            --test records \
             -- --test-threads=1
         env:
           RUST_BACKTRACE: 1

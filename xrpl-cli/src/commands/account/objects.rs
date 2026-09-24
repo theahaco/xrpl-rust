@@ -10,9 +10,8 @@ use crate::{client, output};
 /// List an account's ledger objects.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// The account address
-    #[arg(long)]
-    pub address: String,
+    #[command(flatten)]
+    pub subject: super::subject::AccountArg,
 
     /// Type of objects to return (all, offer, state, etc.)
     #[arg(long)]
@@ -37,7 +36,7 @@ impl Cmd {
         };
 
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
-        let request = AccountObjects::builder(self.address.clone())
+        let request = AccountObjects::builder(self.subject.address()?)
             .maybe_type(object_type)
             .limit(self.limit)
             .build();

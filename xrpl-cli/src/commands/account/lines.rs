@@ -8,9 +8,8 @@ use crate::{client, output};
 /// List an account's trust lines.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// The account address
-    #[arg(long)]
-    pub address: String,
+    #[command(flatten)]
+    pub subject: super::subject::AccountArg,
 
     /// Peer account to filter trust lines
     #[arg(long)]
@@ -27,7 +26,7 @@ pub struct Cmd {
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
-        let request = AccountLines::builder(self.address.clone())
+        let request = AccountLines::builder(self.subject.address()?)
             .limit(self.limit)
             .maybe_peer(self.peer.as_deref())
             .build();

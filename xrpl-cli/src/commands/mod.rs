@@ -6,6 +6,7 @@
 
 pub mod account;
 pub mod global;
+pub mod key;
 pub mod ledger;
 pub mod rpc;
 pub mod server;
@@ -35,13 +36,21 @@ impl Cli {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Commands {
-    /// Wallet operations
-    #[command(subcommand)]
+    /// Wallet operations (deprecated: use `xrpl key` and `xrpl account`)
+    ///
+    /// Hidden because the account and key records replace it. `wallet generate`
+    /// becomes `key generate`, and `wallet from-seed` becomes `key add`. It
+    /// still works, and will be removed.
+    #[command(subcommand, hide = true)]
     Wallet(wallet::Cmd),
 
     /// Account operations
     #[command(subcommand)]
     Account(account::Cmd),
+
+    /// Local key records
+    #[command(subcommand)]
+    Key(key::Cmd),
 
     /// Server operations
     #[command(subcommand)]
@@ -64,6 +73,7 @@ impl Commands {
         match self {
             Commands::Wallet(cmd) => cmd.run(),
             Commands::Account(cmd) => cmd.run(),
+            Commands::Key(cmd) => cmd.run(),
             Commands::Server(cmd) => cmd.run(),
             Commands::Ledger(cmd) => cmd.run(),
             Commands::Rpc(cmd) => cmd.run(),
