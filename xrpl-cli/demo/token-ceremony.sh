@@ -133,14 +133,15 @@ make_identity() {
   fi
 
   "$XRPL" key generate "$name" --algorithm "$algorithm" >/dev/null
-  local address
-  address=$("$XRPL" key show "$name" --json | jq -r .classic_address)
 
+  # Neither --address nor --default-signer: the address is read out of the key
+  # record, and a lone key is already the key that signs.
   "$XRPL" account add "$name" \
-    --address "$address" \
     --network-id "$EXPECT_NETWORK_ID" \
-    --key "$name" \
-    --default-signer "$name" >/dev/null
+    --key "$name" >/dev/null
+
+  local address
+  address=$("$XRPL" account show "$name" --address)
 
   echo "$address" > "$STATE/$name.address"
   echo "$address"
@@ -164,11 +165,13 @@ enrol_genesis() {
   chmod 700 "$STATE"
 
   "$XRPL" key add genesis --seed-file "$STATE/genesis.seed" >/dev/null
+
+  # The one account still told its own address: genesis is a published constant
+  # here, not something this script derives from a key it just made.
   "$XRPL" account add genesis \
     --address "$GENESIS_ADDRESS" \
     --network-id "$EXPECT_NETWORK_ID" \
-    --key genesis \
-    --default-signer genesis >/dev/null
+    --key genesis >/dev/null
 }
 
 # ---------------------------------------------------------------------------
@@ -584,7 +587,7 @@ check_exit_codes() {
   code=$?; [[ $code -eq 5 ]] || { echo "no terminal to prompt on should exit 5, got $code" >&2; exit 1; }
   note "5 declined, or nothing to ask on"
 
-  "$XRPL" key add watcher-only --public-key "$("$XRPL" key show issuer --json | jq -r .public_key)" >/dev/null 2>&1
+  "$XRPL" key add watcher-only --public-key "$("$XRPL" key show issuer --public-key)" >/dev/null 2>&1
   { "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
         --field Fee=12 --field Sequence=1 \
       | "$XRPL" tx sign --sign-with watcher-only; } >/dev/null 2>&1

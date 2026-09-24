@@ -175,10 +175,15 @@ lives; a **signer** is resolved at runtime and never persisted.
 
 ```bash
 xrpl key generate issuer --show-secret      # the 16-byte seed IS the backup
-xrpl account add issuer --address rISSUER… --network-id 0 \
-      --key issuer --default-signer issuer
+xrpl account add issuer --key issuer --network-id 0
 xrpl account doctor issuer --ledger         # local record vs. the ledger
 ```
+
+No address is spelled out: an account's address derives from its original master
+public key, so `--key` already carries one. `--address` is still there for the
+cases where the two legitimately differ — a regular key, or a key that is only a
+member of someone else's signer list — and the one key an account has is the key
+that signs it, so `--default-signer` is for an account with several.
 
 Seeds are encrypted at rest under a passphrase (age, scrypt) and the record
 points at the blob rather than holding it. Nothing this CLI writes contains key
