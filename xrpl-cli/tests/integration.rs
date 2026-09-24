@@ -24,20 +24,6 @@ mod cli_tests {
         pub const TEST_CLASSIC_ADDRESS: &str = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh"; // Genesis account
         pub const TEST_X_ADDRESS: &str = "X7AcgcsBL6XDcUb289X4mJ8djcdyKaB5hJDWMArnXr61cqZ";
 
-        // Test payment destination
-        pub const TEST_DESTINATION: &str = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
-
-        // Test transaction using genesis account
-        pub const TEST_PAYMENT_JSON: &str = r#"{
-            "Account": "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh",
-            "Amount": "1000000",
-            "Destination": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
-            "TransactionType": "Payment"
-        }"#;
-
-        // Common dummy data
-        pub const DUMMY_TX_BLOB: &str = "1200002280000000240000000161400000000000000168400000000000000A732102F89EAEC7667B30F33D0687BBA86C3FE2A08CCA40A9186C5BDE2DAA6FA97A37D874473045022100F9ED357606932697A4FAB2BE7F222C21DD93CA4CF1F52F0D279145B9F6F51DCF02202B3E35791B1E4806D7BFA9989EABFB66FBEA7050D9916A2BADF4B777F8A3D8A981143FBCD300519B17A2F0A7ABAE8E4E7C59A3944F3E78114B61D3061367C35DF7BD7DBE97D5DD318C4B6C9F0F";
-
         // Error strings a test may CHOOSE to tolerate, because it talks to a
         // flaky public endpoint. This is no longer an ambient default: every
         // call site that wants it now names it, so a new assertion is strict
@@ -50,44 +36,6 @@ mod cli_tests {
         // expected noise is worse than no suite.
         pub const TOLERATED_PUBLIC_ENDPOINT_ERRORS: &[&str] =
             &["expected value", "network", "connection", "timeout"];
-    }
-
-    /// Helper function to submit a transaction and check for successful submission
-    fn submit_and_check_success(tx_blob: &str, url: &str) {
-        let args = ["transaction", "submit", "--tx-blob", tx_blob, "--url", url];
-        let output = run_cli_command(&args).expect("Failed to submit transaction");
-
-        assert!(
-            output.contains("Transaction submission result:"),
-            "Submission output missing expected label"
-        );
-        assert!(
-            output.contains("error: None"),
-            "Submission output indicates an error: {}",
-            output
-        );
-    }
-
-    /// Helper function to get the latest NFT Token ID for an account
-    fn get_latest_nftoken_id(address: &str, url: &str) -> Option<String> {
-        let args = ["account", "nfts", "--address", address, "--url", url];
-        let output = run_cli_command(&args).expect("Failed to fetch NFTs");
-
-        print!("Output from account nfts command: {}", output);
-
-        // Parse NFT Token IDs from output (assume output contains "NFTokenID": "...")
-        for line in output.lines() {
-            if let Some(start) = line.find("\"NFTokenID\":") {
-                let rest = &line[start + 13..];
-                if let Some(id_start) = rest.find('"') {
-                    let rest = &rest[id_start + 1..];
-                    if let Some(id_end) = rest.find('"') {
-                        return Some(rest[..id_end].to_string());
-                    }
-                }
-            }
-        }
-        None
     }
 
     /// Helper function to run the CLI with arguments and capture output
@@ -240,16 +188,56 @@ mod cli_tests {
         );
     }
 
+    /// Write a seed into a private file and hand back its path.
+    ///
+    /// The directory is 0700 and the file 0600, which is what `--seed-file`
+    /// requires: a 0600 file inside a world-readable directory is still one
+    /// anyone can find.
+    fn private_seed_file(seed: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+        let dir = tempfile::tempdir().expect("temp dir");
+        let path = dir.path().join("seed");
+        std::fs::write(&path, format!("{seed}\n")).expect("write seed");
+
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))
+                .expect("chmod dir");
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+                .expect("chmod file");
+        }
+
+        (dir, path)
+    }
+
     #[test]
     fn test_wallet_from_seed() {
-        let output = run_cli_command(&["wallet", "from-seed", "--seed", constants::TEST_SEED])
-            .expect("Failed to run wallet from-seed command");
+        // Through `--seed-file`, so no seed reaches `argv` and nothing in this
+        // suite is visible in a process table while it runs.
+        let (_dir, path) = private_seed_file(constants::TEST_SEED);
+
+        let output =
+            run_cli_command(&["wallet", "from-seed", "--seed-file", path.to_str().unwrap()])
+                .expect("Failed to run wallet from-seed command");
 
         // TEST_SEED is the standalone genesis seed, so the address it derives is
         // known — assert the value rather than merely that a field exists.
         assert_eq!(
             wallet_json(&output)["classic_address"].as_str(),
             Some(constants::TEST_CLASSIC_ADDRESS)
+        );
+    }
+
+    #[test]
+    fn test_a_seed_never_reaches_argv_in_this_suite() {
+        // The suite used to pass the genesis seed as a command-line argument at
+        // nine call sites. Deleting the commands that took one removed eight;
+        // this asserts the last one stayed gone.
+        let source = include_str!("integration.rs");
+
+        assert!(
+            !source.contains("\"--seed\","),
+            "a test passes --seed in argv; use --seed-file or XRPL_SEED"
         );
     }
 
@@ -441,211 +429,5 @@ mod cli_tests {
         // This test specifically expects an error
         assert!(result.is_err());
         assert!(result.unwrap_err().to_string().contains("Invalid address:"));
-    }
-
-    // ===== TRANSACTION TESTS =====
-
-    #[test]
-    fn test_sign_transaction() {
-        assert_cli_command(
-            &[
-                "transaction",
-                "sign",
-                "--seed",
-                constants::TEST_SEED,
-                "--type",
-                "payment",
-                "--json",
-                constants::TEST_PAYMENT_JSON,
-            ],
-            "Signed transaction blob:",
-            &["Invalid seed", "Failed to sign", "Invalid JSON"],
-        );
-    }
-
-    #[test]
-    fn test_submit_transaction() {
-        assert_cli_command(
-            &[
-                "transaction",
-                "submit",
-                "--tx-blob",
-                constants::DUMMY_TX_BLOB,
-                "--url",
-                constants::TEST_URL,
-            ],
-            "Transaction submission result:",
-            &["Failed to submit transaction"],
-        );
-    }
-
-    #[test]
-    fn test_trustset_command() {
-        // Use genesis seed and a test destination as issuer
-        let args = [
-            "transaction",
-            "trust-set",
-            "--seed",
-            constants::TEST_SEED,
-            "--issuer",
-            constants::TEST_DESTINATION,
-            "--currency",
-            "USD",
-            "--limit",
-            "1000",
-            "--url",
-            constants::TEST_URL,
-        ];
-
-        let result = run_cli_command(&args);
-        let output = result.expect("Failed to run trustset command");
-
-        // Check that the output contains a signed transaction blob
-        assert!(
-            output.contains("Signed transaction blob:"),
-            "Output should contain signed transaction blob, got: {}",
-            output
-        );
-        // Optionally, check for the submit hint
-        assert!(
-            output.contains("To submit, use: xrpl transaction submit"),
-            "Output should contain submit hint"
-        );
-    }
-
-    #[test]
-    fn test_account_set_flag() {
-        let args = [
-            "account",
-            "set-flag",
-            "--seed",
-            constants::TEST_SEED,
-            "--flag",
-            "asfRequireAuth",
-            "--url",
-            constants::TEST_URL,
-        ];
-
-        let result = run_cli_command(&args);
-        let output = result.expect("Failed to run account set-flag command");
-
-        assert!(
-            output.contains("Signed transaction blob:"),
-            "Output should contain signed transaction blob, got: {}",
-            output
-        );
-        assert!(
-            output.contains("To submit, use: xrpl transaction submit"),
-            "Output should contain submit hint"
-        );
-    }
-
-    #[test]
-    fn test_account_clear_flag() {
-        let args = [
-            "account",
-            "clear-flag",
-            "--seed",
-            constants::TEST_SEED,
-            "--flag",
-            "asfRequireAuth",
-            "--url",
-            constants::TEST_URL,
-        ];
-
-        let result = run_cli_command(&args);
-        let output = result.expect("Failed to run account clear-flag command");
-
-        assert!(
-            output.contains("Signed transaction blob:"),
-            "Output should contain signed transaction blob, got: {}",
-            output
-        );
-        assert!(
-            output.contains("To submit, use: xrpl transaction submit"),
-            "Output should contain submit hint"
-        );
-    }
-
-    // TODO: NFT support is not working on the testnet.
-    #[test]
-    #[ignore]
-    fn test_nft_mint_and_burn_roundtrip() {
-        // Mint NFT
-        let mint_args = [
-            "transaction",
-            "nft-mint",
-            "--seed",
-            constants::TEST_SEED,
-            "--uri",
-            "68747470733a2f2f6578616d706c652e636f6d2f6e66742e6a736f6e",
-            "--flags",
-            "8", // TfTransferable
-            "--transfer-fee",
-            "1000",
-            "--url",
-            constants::TEST_URL,
-        ];
-
-        let mint_output = run_cli_command(&mint_args).expect("Failed to fetch NFTs");
-        assert!(mint_output.contains("Signed transaction blob:"));
-
-        // Extract the signed blob
-        let tx_blob = mint_output
-            .lines()
-            .find(|l| l.contains("Signed transaction blob:"))
-            .and_then(|l| l.split(':').nth(1))
-            .map(|s| s.trim())
-            .expect("No signed transaction blob found");
-
-        // Submit the mint transaction
-        submit_and_check_success(tx_blob, constants::TEST_URL);
-
-        // Wait for the NFT to appear (polling)
-        let mut nftoken_id = None;
-        for _ in 0..5 {
-            std::thread::sleep(std::time::Duration::from_secs(4));
-            nftoken_id =
-                get_latest_nftoken_id(constants::TEST_CLASSIC_ADDRESS, constants::TEST_URL);
-            if nftoken_id.is_some() {
-                break;
-            }
-        }
-
-        let nftoken_id = nftoken_id.expect("Failed to find minted NFT on account");
-        // Burn NFT
-        let burn_args = [
-            "transaction",
-            "nft-burn",
-            "--seed",
-            constants::TEST_SEED,
-            "--nftoken-id",
-            &nftoken_id,
-            "--url",
-            constants::TEST_URL,
-        ];
-
-        let burn_output = run_cli_command(&burn_args).expect("Failed to run nft-burn command");
-        assert!(burn_output.contains("Signed transaction blob:"));
-
-        // Extract the signed blob for burn
-        let burn_tx_blob = burn_output
-            .lines()
-            .find(|l| l.contains("Signed transaction blob:"))
-            .and_then(|l| l.split(':').nth(1))
-            .map(|s| s.trim())
-            .expect("No signed transaction blob found for burn");
-
-        // Submit the burn transaction
-        submit_and_check_success(burn_tx_blob, constants::TEST_URL);
-
-        // Verify the NFT is no longer present
-        let nftoken_id_after_burn =
-            get_latest_nftoken_id(constants::TEST_CLASSIC_ADDRESS, constants::TEST_URL);
-        assert!(
-            nftoken_id_after_burn.is_none(),
-            "NFT should be burned, but found: {:?}",
-            nftoken_id_after_burn
-        );
     }
 }

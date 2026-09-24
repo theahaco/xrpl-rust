@@ -80,28 +80,6 @@ pub fn response<T: core::fmt::Debug>(
     }
 }
 
-/// Serialize a signed transaction to its binary blob, print it, and hand it
-/// back so the caller can tell the user how to submit it.
-///
-/// Deprecated, not deleted: the five call sites are in commands the removal PR
-/// takes out, and they go together.
-#[deprecated(note = "prose on stdout is unpipeable; the tx pipeline uses artifact()")]
-pub fn signed_tx_blob<T: Serialize>(tx: &T) -> Result<String, Error> {
-    let tx_blob = xrpl::core::binarycodec::encode(tx)?;
-    println!("Signed transaction blob: {tx_blob}");
-    Ok(tx_blob)
-}
-
-/// The follow-up line printed after a command signs but does not submit.
-///
-/// This hint *is* the problem it papers over: it exists because stdout carried
-/// prose, so nothing could be piped and copy-pasting a hex blob between two
-/// commands became the documented workflow.
-#[deprecated(note = "the pipeline replaces copy-pasting a blob between commands")]
-pub fn submit_hint(tx_blob: &str, url: &str) {
-    println!("To submit, use: xrpl transaction submit --tx-blob {tx_blob} --url {url}");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

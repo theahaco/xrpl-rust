@@ -24,6 +24,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The CLI is now one module per command (`src/commands/<group>/<command>.rs`), each owning its `clap` arguments and a `run` method, with `client`/`output`/`error` modules replacing the free helpers that the old 680-line `execute_command` match shared.
 - Commands that reach a node accept `--network mainnet|testnet|devnet|local` alongside `--url`; `--url` wins when both are given and per-command defaults are unchanged (mainnet for queries, testnet for `wallet faucet`, the WebSocket endpoint for `server subscribe`). `-u` is now accepted as the short form of `--url` on every such command rather than only some.
 - **Breaking:** `account tx --limit` is now a `u16` (was `u32`), matching the `limit` field of the `account_tx` request.
+- **Breaking:** the seven one-shot transaction commands are **removed**: `transaction sign|submit|trust-set|nft-mint|nft-burn` and `account set-flag|clear-flag`. The whole `transaction` group is gone; `xrpl tx` is the only transaction surface. They were deleted rather than shimmed because every blob they emitted was unsubmittable — none of them autofilled `Fee`, `Sequence` or `LastLedgerSequence` — so a shim would have preserved compatibility with output rippled rejects. `xrpl-cli` has never been published, which is what keeps that break free.
+
+  | removed | replacement |
+  |---|---|
+  | `transaction sign --type T --json '…'` | `xrpl tx new <Type> … \| xrpl tx autofill \| xrpl tx sign` |
+  | `transaction submit --tx-blob HEX` | `xrpl tx submit`, with `--wait` to poll to validation |
+  | `transaction trust-set -s -i -c -l` | `xrpl tx new TrustSet --limit-amount …` |
+  | `transaction nft-mint` | `xrpl tx new NFTokenMint --nftoken-taxon N` |
+  | `transaction nft-burn` | `xrpl tx new NFTokenBurn --nftoken-id …` |
+  | `account set-flag` / `account clear-flag` | `xrpl tx new AccountSet --set-flag`/`--clear-flag` |
+
+  **Behavior change worth calling out:** `nft-mint` hardcoded `nftoken_taxon(0)` and offered no way to set it. `tx new NFTokenMint` exposes the real field with no default, so a mint that relied on the implicit `0` must now pass `--nftoken-taxon 0` explicitly.
+
+  This also retires the short `-s`. It meant `--seed` on all six of the commands that carried it, and all six are deleted here, so it is retired by deletion rather than deprecation — and must never be reassigned. Repointing it at a key-selection flag would leave every existing script parsing while silently reinterpreting a seed as an account name, which is a wrong-key signature rather than an error.
+- `xrpl account tx` gains `history` as a visible alias, and every verb in the group says in its help that it is a ledger query. `xrpl account tx` sitting beside `xrpl tx` never confuses clap, but it does confuse readers.
 
 - **Breaking:** every model in `models::requests` and `models::transactions` now constructs through a [`bon`](https://bon-rs.com) builder instead of a positional `new(..)`. `Type::new(a, None, None, ...)` becomes `Type::builder(subject).field(value).build()`; the positional constructors are gone. The subject (the transaction's `account`, a request's primary argument) stays positional on `builder(..)`, every other field is a named setter, `maybe_field(opt)` takes an `Option` you already hold, and string/amount setters accept anything `Into`-convertible (`.fee("12")`). Struct fields, field order, and the serialized wire format are unchanged, so struct-literal construction with `..Default::default()` still works. Adding an optional field to a model is no longer a breaking change for callers.
 - **Breaking:** `GenericRequest::new`'s `command` parameter is now `Cow<'a, str>` rather than `impl Into<Cow<'a, str>>`; the builder's `into` conversion replaces it (`GenericRequest::builder("ledger_accept")`).

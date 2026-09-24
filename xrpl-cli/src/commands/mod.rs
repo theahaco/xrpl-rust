@@ -9,7 +9,6 @@ pub mod global;
 pub mod ledger;
 pub mod rpc;
 pub mod server;
-pub mod transaction;
 pub mod tx;
 pub mod wallet;
 
@@ -44,10 +43,6 @@ pub enum Commands {
     #[command(subcommand)]
     Account(account::Cmd),
 
-    /// Transaction operations
-    #[command(subcommand)]
-    Transaction(transaction::Cmd),
-
     /// Server operations
     #[command(subcommand)]
     Server(server::Cmd),
@@ -69,7 +64,6 @@ impl Commands {
         match self {
             Commands::Wallet(cmd) => cmd.run(),
             Commands::Account(cmd) => cmd.run(),
-            Commands::Transaction(cmd) => cmd.run(),
             Commands::Server(cmd) => cmd.run(),
             Commands::Ledger(cmd) => cmd.run(),
             Commands::Rpc(cmd) => cmd.run(),
