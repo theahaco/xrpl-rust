@@ -328,7 +328,7 @@ fn apply_raw_fields(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use clap::{CommandFactory, Parser, Subcommand};
+    use clap::{CommandFactory, Parser};
     use serde_json::json;
 
     const ACCOUNT: &str = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
@@ -481,6 +481,54 @@ mod tests {
         // This is offline JSON like any other type: no signer, no node, no
         // confirmation. The guardrail belongs at submit time.
         assert_eq!(tx["TransactionType"], json!("AccountSet"));
+    }
+
+    // Ported from `account/flag.rs`, deleted with the `account set-flag` and
+    // `account clear-flag` commands. They are regression coverage for a bug the
+    // CLI-extraction PR fixed, so they move rather than disappear.
+
+    #[test]
+    fn test_set_writes_set_flag() {
+        let tx = build_tx(&[
+            "account-set",
+            "--account",
+            ACCOUNT,
+            "--set-flag",
+            "asfRequireAuth",
+        ])
+        .expect("builds");
+
+        assert!(!tx["SetFlag"].is_null());
+        assert!(tx["ClearFlag"].is_null());
+    }
+
+    #[test]
+    fn test_clear_writes_clear_flag() {
+        let tx = build_tx(&[
+            "account-set",
+            "--account",
+            ACCOUNT,
+            "--clear-flag",
+            "asfRequireAuth",
+        ])
+        .expect("builds");
+
+        assert!(!tx["ClearFlag"].is_null());
+        assert!(tx["SetFlag"].is_null());
+    }
+
+    #[test]
+    fn test_an_unknown_account_flag_is_rejected() {
+        let error = build_tx(&[
+            "account-set",
+            "--account",
+            ACCOUNT,
+            "--set-flag",
+            "asfNotAFlag",
+        ])
+        .unwrap_err();
+
+        assert_eq!(error.kind(), clap::error::ErrorKind::InvalidValue);
     }
 
     #[test]
