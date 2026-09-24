@@ -71,8 +71,14 @@ fn write_line(line: &str) -> Result<(), Error> {
 
 /// Write one already-rendered line to stdout.
 ///
-/// For `server subscribe`, which passes the node's own frame through rather
-/// than re-serializing it.
+/// For output that is a line rather than a document: `server subscribe`
+/// passing the node's own frame through rather than re-serializing it, the
+/// record listings and `show` blocks whose output is a rendered table, and a
+/// part flag's single bare value. It is still the command's output and so
+/// still stdout — `-q` silences commentary, never the answer.
+///
+/// The reason to route these through here rather than `println!` is the one
+/// [`write_line`] documents: `xrpl key ls | head -1` ended in a panic message.
 pub fn raw_line(line: &str) -> Result<(), Error> {
     write_line(line)
 }

@@ -418,3 +418,294 @@ fn test_key_ls_shows_the_public_key_alongside_the_id() {
     assert_eq!(row["id"], "issuer");
     assert_eq!(row["public_key"], public_key);
 }
+
+#[test]
+fn test_an_account_takes_its_address_from_its_key() {
+    let env = TestEnv::new();
+    let (address, _) = recorded_key(&env, "alice-master");
+
+    // An account's address derives from its master public key, so when that
+    // key is one of the ones being recorded the address is already on disk and
+    // asking for it again only means piping `key show` through `jq`.
+    let added = assert_offline(&env, &["account", "add", "alice", "--key", "alice-master"]);
+    added.assert_stderr_contains(&format!("address {address}, from key alice-master"));
+
+    let shown = env.run(&["account", "show", "alice", "--json"]);
+    shown.assert_success();
+    assert_eq!(shown.stdout_json()["address"], address);
+}
+
+#[test]
+fn test_an_explicit_address_wins_over_the_one_its_key_derives_to() {
+    let env = TestEnv::new();
+    let (key_address, _) = recorded_key(&env, "alice-regular");
+
+    // A regular key and a signer-list member each derive to their own address
+    // and not to the account's, which is the whole reason keys are a list
+    // rather than a field. Deriving is a default, never a rule.
+    env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--address",
+        DESTINATION,
+        "--key",
+        "alice-regular",
+    ])
+    .assert_success();
+
+    let shown = env.run(&["account", "show", "alice", "--json"]);
+    shown.assert_success();
+
+    let record = shown.stdout_json();
+    assert_eq!(record["address"], DESTINATION);
+    assert_ne!(record["address"], key_address);
+}
+
+#[test]
+fn test_keys_that_derive_to_different_addresses_are_refused() {
+    let env = TestEnv::new();
+    let (master, _) = recorded_key(&env, "alice-master");
+    let (regular, _) = recorded_key(&env, "alice-regular");
+
+    let output = env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--key",
+        "alice-master",
+        "--key",
+        "alice-regular",
+    ]);
+
+    // Which of the two this account is cannot be guessed, and guessing wrong
+    // records an account that signs for someone else. Both candidates are
+    // spelled out so the answer is readable off the refusal.
+    output.assert_code(1);
+    output.assert_stderr_contains(&format!("alice-master is {master}"));
+    output.assert_stderr_contains(&format!("alice-regular is {regular}"));
+    output.assert_stderr_contains("pass --address");
+}
+
+#[test]
+fn test_an_account_with_neither_an_address_nor_a_key_is_refused() {
+    let env = TestEnv::new();
+
+    let output = env.run(&["account", "add", "alice"]);
+
+    output.assert_code(1);
+    output.assert_stderr_contains("nothing to record");
+}
+
+#[test]
+fn test_key_show_prints_one_part_at_a_time() {
+    let env = TestEnv::new();
+    recorded_key(&env, "alice-master");
+
+    let whole = env.run(&["key", "show", "alice-master", "--json"]);
+    whole.assert_success();
+    let whole = whole.stdout_json();
+
+    for (flag, field) in [
+        ("--address", "classic_address"),
+        ("--public-key", "public_key"),
+        ("--algorithm", "algorithm"),
+        ("--source", "source"),
+    ] {
+        // Written the way the request was phrased — `key show --address alice`
+        // — because that is the order a person types when the flag is the
+        // question and the id is the subject.
+        let part = assert_offline(&env, &["key", "show", flag, "alice-master"]);
+
+        // Compared against the whole buffer rather than its trimmed contents:
+        // a part is read with `$(...)`, so a label or a second line would each
+        // have to be stripped back off by every caller.
+        assert_eq!(
+            part.stdout,
+            format!("{}\n", whole[field].as_str().expect(field)),
+            "{flag}"
+        );
+    }
+}
+
+#[test]
+fn test_account_show_lists_its_keys_one_per_line() {
+    let env = TestEnv::new();
+    let (address, _) = recorded_key(&env, "alice-master");
+    recorded_key(&env, "alice-regular");
+
+    env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--address",
+        &address,
+        "--key",
+        "alice-master",
+        "--key",
+        "alice-regular",
+    ])
+    .assert_success();
+
+    // One per line rather than the human block's comma-separated list, so a
+    // `while read` loop needs no splitting.
+    let shown = assert_offline(&env, &["account", "show", "alice", "--keys"]);
+    assert_eq!(shown.stdout, "alice-master\nalice-regular\n");
+}
+
+#[test]
+fn test_the_only_key_is_the_default_without_being_recorded_as_one() {
+    let env = TestEnv::new();
+    let (address, _) = recorded_key(&env, "alice-master");
+
+    env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--address",
+        &address,
+        "--key",
+        "alice-master",
+    ])
+    .assert_success();
+
+    // The effective signer, not only a recorded one: an account with a single
+    // key has no `default_signer` field and that key is still the one to sign
+    // with, which is the commonest record there is.
+    let part = assert_offline(&env, &["account", "show", "alice", "--default-signer"]);
+    assert_eq!(part.stdout, "alice-master\n");
+
+    let human = env.run(&["account", "show", "alice"]);
+    human.assert_success();
+    assert!(
+        human
+            .stdout
+            .contains("default signer  alice-master (the only key)"),
+        "{}",
+        human.stdout
+    );
+}
+
+#[test]
+fn test_the_default_signer_of_a_watch_only_account_is_unavailable() {
+    let env = TestEnv::new();
+    env.run(&["account", "add", "watcher", "--address", DESTINATION])
+        .assert_success();
+
+    // Not an empty answer: an unset tag is a field set to nothing, and this is
+    // a question with no answer at all, so it fails rather than printing an
+    // empty line a caller would have to tell apart from a key id.
+    env.run(&["account", "show", "watcher", "--default-signer"])
+        .assert_code(6);
+}
+
+#[test]
+fn test_an_unset_field_prints_nothing_at_all() {
+    let env = TestEnv::new();
+    let (address, _) = recorded_key(&env, "alice-master");
+    env.run(&["account", "add", "alice", "--address", &address])
+        .assert_success();
+
+    // `$(xrpl account show alice --tag)` has to come back empty. The word
+    // "none" on stdout would be indistinguishable from a tag, and reading it
+    // would mean every caller checking for that one string.
+    let shown = assert_offline(&env, &["account", "show", "alice", "--tag"]);
+    assert!(shown.stdout.is_empty(), "{}", shown.stdout);
+    shown.assert_stderr_contains("no destination tag");
+}
+
+#[test]
+fn test_naming_the_same_key_twice_is_refused() {
+    let env = TestEnv::new();
+    recorded_key(&env, "alice-master");
+
+    // Accepted, this records an account with one key that cannot tell it has
+    // one: the resolution that makes a lone key the default counts entries, so
+    // the duplicate reappears as "several keys and no default" at signing time.
+    let output = env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--key",
+        "alice-master",
+        "--key",
+        "alice-master",
+    ]);
+
+    output.assert_code(1);
+    output.assert_stderr_contains("--key alice-master was given twice");
+}
+
+#[test]
+fn test_an_ambiguous_default_signer_names_a_remedy_this_command_has() {
+    let env = TestEnv::new();
+    let (address, _) = recorded_key(&env, "alice-master");
+    recorded_key(&env, "alice-regular");
+
+    env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--address",
+        &address,
+        "--key",
+        "alice-master",
+        "--key",
+        "alice-regular",
+    ])
+    .assert_success();
+
+    // `AccountRecord::signer_key` answers this case by naming `--sign-with`,
+    // which `tx sign` has and this command does not, so following the advice
+    // from here is a dead end.
+    let output = env.run(&["account", "show", "alice", "--default-signer"]);
+    output.assert_code(1);
+    output.assert_stderr_contains("--force --default-signer");
+    assert!(!output.stderr.contains("--sign-with"), "{}", output.stderr);
+
+    // And the human block says so rather than omitting the line, which is the
+    // record where a person most needs to be told to choose.
+    let human = env.run(&["account", "show", "alice"]);
+    human.assert_success();
+    assert!(human.stdout.contains("several keys"), "{}", human.stdout);
+}
+
+#[test]
+fn test_force_will_not_repoint_an_alias_at_a_key_of_its_own() {
+    let env = TestEnv::new();
+    let (regular, _) = recorded_key(&env, "alice-regular");
+
+    // A regular key derives to its own address, never the account's, so this
+    // account is deliberately recorded as something its key is not.
+    env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--address",
+        DESTINATION,
+        "--key",
+        "alice-regular",
+    ])
+    .assert_success();
+
+    // Adding a key is the obvious reason to re-run `add --force`. Until
+    // `--address` became optional it had to be restated every time, so an alias
+    // could not change identity by omission — and silently repointing it would
+    // build every later transaction for an account nobody here controls.
+    let output = env.run(&[
+        "account",
+        "add",
+        "alice",
+        "--force",
+        "--key",
+        "alice-regular",
+    ]);
+
+    output.assert_code(1);
+    output.assert_stderr_contains(&format!("alice is recorded as {DESTINATION}"));
+    output.assert_stderr_contains(&format!("derives to {regular}"));
+
+    let shown = env.run(&["account", "show", "alice", "--address"]);
+    shown.assert_success();
+    assert_eq!(shown.stdout, format!("{DESTINATION}\n"));
+}

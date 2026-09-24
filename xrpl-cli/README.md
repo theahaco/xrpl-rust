@@ -80,14 +80,31 @@ seed anywhere in `argv`:
 
 ```sh
 xrpl key generate issuer --show-secret        # the 16-byte seed IS the backup
-xrpl account add issuer --address rISSUER… --network-id 0 \
-      --key issuer --default-signer issuer
+xrpl account add issuer --key issuer --network-id 0
 
 xrpl tx new Payment --account issuer --field Destination=rDEST… --field Amount=1 \
   | xrpl tx autofill --network testnet \
   | xrpl tx sign --sign-with issuer \
   | xrpl tx submit --wait --network testnet
 ```
+
+No address is spelled out, because `--key` already carries one: an account's
+address derives from its original master public key, so the key record knows it
+and `account add` says on stderr which key it took it from. Pass `--address`
+when the two legitimately differ — a regular key, or a key that is only a member
+of someone else's signer list. One key is the default signer by being the only
+one, so `--default-signer` is for an account with several.
+
+For a script, `key show` and `account show` answer one field at a time:
+`xrpl key show issuer --address`, `--public-key`, `--algorithm`, `--source`, and
+`xrpl account show issuer --address`, `--network-id`, `--tag`, `--keys`,
+`--default-signer`. Each writes that value bare on stdout and nothing else, so
+`--json | jq -r .classic_address` is just `--address`. A field that is set to
+nothing prints nothing at all, which keeps `$(xrpl account show issuer --tag)`
+empty rather than the word "none". `account show --default-signer` answers which
+key the record names — the recorded default, or the only key when there is one —
+and that is the value to hand `tx sign --sign-with`. `tx sign` does not read
+account records itself, so the key still has to be named.
 
 The passphrase comes from a prompt, or from `XRPL_PASSPHRASE` when there is no
 terminal — stdin carries the transaction, so it cannot travel that way.

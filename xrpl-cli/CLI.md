@@ -84,7 +84,7 @@ Arguments:
 
 Options:
 
-- `--address <R_ADDRESS>` — The classic r-address
+- `--address <R_ADDRESS>` — The classic r-address. Optional when --key can supply it
 - `--network-id <NETWORK_ID>` — Which network it is on. Mainnet is 0
 - `--tag <TAG>` — A destination tag carried with the address
 - `--key <KEY_ID>` — A key record that can sign for it. Repeatable
@@ -110,6 +110,11 @@ Arguments:
 Options:
 
 - `--json` — Emit JSON
+- `--address` — Print only the classic r-address
+- `--network-id` — Print only the network id
+- `--tag` — Print only the destination tag
+- `--keys` — Print only the key ids, one per line
+- `--default-signer` — Print only the key this record names as its default
 
 ## `xrpl account rm`
 
@@ -328,6 +333,10 @@ Arguments:
 Options:
 
 - `--json` — Emit JSON
+- `--address` — Print only the address this key derives to
+- `--public-key` — Print only the public key
+- `--algorithm` — Print only the curve: secp256k1 or ed25519
+- `--source` — Print only where the secret lives
 
 ## `xrpl key rm`
 

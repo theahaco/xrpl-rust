@@ -82,7 +82,14 @@ pub enum SignerError {
     /// The record exists; the secret it points at is not reachable from here —
     /// a credential-store entry made on another machine, a device that is not
     /// plugged in. Different remedy from "no such key", so a different code.
-    #[error("Signer {0} is unavailable on this machine")]
+    /// Carries its own sentence and adds nothing to it. Every construction
+    /// site passes a full clause naming the signer and the reason, so the
+    /// `Signer {0} is unavailable on this machine` this used to wrap them in
+    /// spliced the two together: "Signer alice is watch-only: it has no keys
+    /// is unavailable on this machine". `Error::Signer` already prefixes
+    /// "Signer error", and the exit code is what tells this apart from
+    /// [`SignerError::Backend`], not the prose.
+    #[error("{0}")]
     Unavailable(String),
     /// A human declined, or the prompt could not be shown.
     #[error("Declined: {0}")]
