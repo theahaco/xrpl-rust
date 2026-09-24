@@ -11,8 +11,8 @@
 //! ```
 //!
 //! Which stages touch the network is a property of the stage, not a flag:
-//! `new`, `sign`, `hash`, `digest`, `blob`, `decode` and `mpt-issuance-id` are
-//! offline and need no URL at all. `autofill` and `submit` are the only two that
+//! `new`, `edit`, `sign`, `hash`, `digest`, `blob`, `decode` and
+//! `mpt-issuance-id` are offline and need no URL at all. `autofill` and `submit` are the only two that
 //! reach a node.
 //!
 //! The pipe format is not configurable. There is no `--output`, no `--format`
@@ -24,6 +24,7 @@ pub mod autofill;
 pub mod blob;
 pub mod decode;
 pub mod digest;
+pub mod edit;
 pub mod fields;
 pub mod hash;
 pub mod io;
@@ -45,6 +46,8 @@ pub enum Cmd {
     New(new::Cmd),
     /// Fill in Fee, Sequence, LastLedgerSequence and NetworkID
     Autofill(autofill::Cmd),
+    /// Open a transaction in $EDITOR (OFFLINE)
+    Edit(edit::Cmd),
     /// Sign a transaction (OFFLINE)
     Sign(sign::Cmd),
     /// Combine independently signed copies of one transaction (OFFLINE)
@@ -70,6 +73,7 @@ impl Cmd {
         match self {
             Cmd::New(cmd) => cmd.run(),
             Cmd::Autofill(cmd) => cmd.run(),
+            Cmd::Edit(cmd) => cmd.run(),
             Cmd::Sign(cmd) => cmd.run(),
             Cmd::Merge(cmd) => cmd.run(),
             Cmd::Submit(cmd) => cmd.run(),

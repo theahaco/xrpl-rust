@@ -32,13 +32,23 @@ xrpl tx new Payment \
   | xrpl tx submit --wait --network testnet
 ```
 
-`new`, `sign`, `hash`, `digest`, `blob`, `decode` and `mpt-issuance-id` make no
-network calls and need no URL. `autofill` and `submit` are the only two that
+`new`, `edit`, `sign`, `hash`, `digest`, `blob`, `decode` and `mpt-issuance-id`
+make no network calls and need no URL. `autofill` and `submit` are the only two that
 reach a node, and neither has a default network — a pipeline that picks one on
 your behalf can pick mainnet.
 
 Human-readable output goes to stderr and is silenced by `-q`; stdout carries the
 transaction and nothing else, so `jq` always works.
+
+`tx edit` opens the transaction in `$XRPL_EDITOR` (then `$EDITOR`, `$VISUAL`,
+`vi`) mid-pipe, for the cases the builder does not model. The editor talks to
+`/dev/tty`, not to this process's stdin and stdout — those are carrying the
+transaction. With no terminal it exits 5 rather than hanging.
+
+`tx submit` warns on stderr when an MPT `Payment`'s destination holds no
+`MPToken` for that issuance, because that fails `tecNO_AUTH` at the ledger and
+a 2-of-3 ceremony is an expensive way to discover it. It stays a warning: the
+node is the authority on whether a transaction applies.
 
 ### Supplying a seed
 

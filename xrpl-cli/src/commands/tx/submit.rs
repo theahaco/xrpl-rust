@@ -64,6 +64,8 @@ impl Cmd {
         node: &AsyncJsonRpcClient,
     ) -> Result<(), Error> {
         require_submittable(transaction)?;
+        self.warn_if_the_destination_cannot_hold_it(transaction, node)
+            .await;
 
         let blob = encode(transaction)?;
         let mut params = serde_json::Map::new();
@@ -110,6 +112,48 @@ impl Cmd {
         classify(&result_code)
     }
 
+    /// Warn before spending a ceremony on `tecNO_AUTH`.
+    ///
+    /// An MPT `Payment` to an account with no `MPToken` object for that issuance
+    /// fails at the ledger. That is exit 3 and a burnt fee for a single-signed
+    /// transaction, and a re-collected quorum for a multisigned one — the
+    /// TypeScript project this CLI replaces hit exactly this, because its
+    /// `redistribute` never authorized its destination.
+    ///
+    /// A warning, never a refusal, and never a failure of its own: the node is
+    /// the authority on whether a transaction applies, and a submit that
+    /// refused to run because a read failed would be worse than the `tec` it
+    /// was trying to prevent.
+    async fn warn_if_the_destination_cannot_hold_it(
+        &self,
+        transaction: &Value,
+        node: &AsyncJsonRpcClient,
+    ) {
+        if transaction["TransactionType"] != "Payment" {
+            return;
+        }
+
+        let Some(issuance) = transaction["Amount"]["mpt_issuance_id"].as_str() else {
+            return;
+        };
+        let Some(destination) = transaction["Destination"].as_str() else {
+            return;
+        };
+
+        if holds_mpt(node, destination, issuance).await
+            || is_the_issuer(node, destination, issuance).await
+        {
+            return;
+        }
+
+        output::warn(format!(
+            "{destination} holds no MPToken for {issuance}. \
+             This will fail with tecNO_AUTH unless it is authorized first: \
+             `xrpl tx new MPTokenAuthorize --account {destination} \
+             --mptoken-issuance-id {issuance}`, signed by {destination}."
+        ));
+    }
+
     async fn poll_until_validated(
         &self,
         node: &AsyncJsonRpcClient,
@@ -152,6 +196,72 @@ impl Cmd {
             tokio::time::sleep(Duration::from_millis(500)).await;
         }
     }
+}
+
+/// Whether an account already has an `MPToken` for this issuance.
+///
+/// Read against the **current** ledger rather than the validated one: a
+/// destination authorized moments ago by an earlier stage of the same script is
+/// not validated yet, and warning about it would be a false alarm people learn
+/// to skip.
+///
+/// Every failure answers "yes" — an unreachable node, an unsupported method, a
+/// malformed response. The cost of a missed warning is a `tec` the caller sees
+/// anyway; the cost of a false one is a warning nobody reads.
+async fn holds_mpt(node: &AsyncJsonRpcClient, account: &str, issuance: &str) -> bool {
+    let mut params = serde_json::Map::new();
+    params.insert("account".into(), Value::String(account.to_string()));
+    params.insert("type".into(), Value::String("mptoken".into()));
+    params.insert("ledger_index".into(), Value::String("current".into()));
+
+    let Ok(response) = node
+        .request(
+            GenericRequest::builder("account_objects")
+                .params(params)
+                .build()
+                .into(),
+        )
+        .await
+    else {
+        return true;
+    };
+
+    let Ok(result) = client::result_value(&response) else {
+        return true;
+    };
+
+    match result["account_objects"].as_array() {
+        Some(objects) => objects
+            .iter()
+            .any(|object| object["MPTokenIssuanceID"] == issuance),
+        None => true,
+    }
+}
+
+/// Whether this account issued the MPT.
+///
+/// An issuer holds no `MPToken` for its own issuance and never needs one, so
+/// redeeming back to it is not the mistake this warning is about.
+async fn is_the_issuer(node: &AsyncJsonRpcClient, account: &str, issuance: &str) -> bool {
+    let mut params = serde_json::Map::new();
+    params.insert("mpt_issuance".into(), Value::String(issuance.to_string()));
+    params.insert("ledger_index".into(), Value::String("current".into()));
+
+    let Ok(response) = node
+        .request(
+            GenericRequest::builder("ledger_entry")
+                .params(params)
+                .build()
+                .into(),
+        )
+        .await
+    else {
+        return false;
+    };
+
+    client::result_value(&response)
+        .map(|result| result["node"]["Issuer"] == account)
+        .unwrap_or(false)
 }
 
 /// Refuse a transaction the node would only reject.
