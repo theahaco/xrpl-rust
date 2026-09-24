@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::account_lines::AccountLines;
 
-use crate::commands::global::{NetworkArgs, DEFAULT_PAGINATION_LIMIT};
+use crate::commands::global::{LedgerArgs, NetworkArgs, OutputArgs, DEFAULT_PAGINATION_LIMIT};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -20,7 +20,13 @@ pub struct Cmd {
     pub limit: u16,
 
     #[command(flatten)]
+    pub ledger: LedgerArgs,
+
+    #[command(flatten)]
     pub network: NetworkArgs,
+
+    #[command(flatten)]
+    pub output: OutputArgs,
 }
 
 impl Cmd {
@@ -29,8 +35,15 @@ impl Cmd {
         let request = AccountLines::builder(self.subject.address()?)
             .limit(self.limit)
             .maybe_peer(self.peer.as_deref())
+            .maybe_ledger_hash(self.ledger.hash())
+            .maybe_ledger_index(self.ledger.index())
             .build();
 
-        output::response(client.request(request.into()), "Account trust lines")
+        let response = client.request(request.into()).map_err(Error::Client)?;
+        output::response(
+            &client::ok_result(&response)?,
+            "Account trust lines",
+            self.output.json,
+        )
     }
 }

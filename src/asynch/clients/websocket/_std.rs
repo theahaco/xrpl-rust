@@ -95,35 +95,45 @@ where
         cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let mut guard = block_on(self.websocket.lock());
-        match Pin::new(&mut *guard).poll_next(cx) {
-            Poll::Ready(Some(item)) => match item {
-                Ok(message) => match message {
-                    tungstenite::Message::Text(response) => Poll::Ready(Some(Ok(response))),
-                    tungstenite::Message::Binary(response) => {
-                        let response_string = match String::from_utf8(response) {
-                            Ok(string) => string,
-                            Err(error) => {
-                                return Poll::Ready(Some(Err(XRPLWebSocketException::Utf8(
-                                    error.utf8_error(),
-                                )
-                                .into())));
-                            }
-                        };
-                        Poll::Ready(Some(Ok(response_string)))
-                    }
-                    tungstenite::Message::Close(_) => {
-                        Poll::Ready(Some(Err(XRPLWebSocketException::Disconnected.into())))
-                    }
-                    _ => Poll::Ready(Some(Err(
-                        XRPLWebSocketException::UnexpectedMessageType.into()
-                    ))),
+
+        // Loops rather than matching once, so a control frame is skipped and
+        // the socket polled again instead of ending the stream. rippled pings
+        // its subscribers, and tungstenite answers those itself — surfacing one
+        // as `UnexpectedMessageType` killed every subscription that outlived
+        // the node's ping interval, which is all of them.
+        loop {
+            return match Pin::new(&mut *guard).poll_next(cx) {
+                Poll::Ready(Some(item)) => match item {
+                    Ok(message) => match message {
+                        tungstenite::Message::Text(response) => Poll::Ready(Some(Ok(response))),
+                        tungstenite::Message::Binary(response) => {
+                            let response_string = match String::from_utf8(response) {
+                                Ok(string) => string,
+                                Err(error) => {
+                                    return Poll::Ready(Some(Err(XRPLWebSocketException::Utf8(
+                                        error.utf8_error(),
+                                    )
+                                    .into())));
+                                }
+                            };
+                            Poll::Ready(Some(Ok(response_string)))
+                        }
+                        tungstenite::Message::Close(_) => {
+                            Poll::Ready(Some(Err(XRPLWebSocketException::Disconnected.into())))
+                        }
+                        // Keepalives and raw frames carry no application
+                        // message. Skip them and poll again.
+                        tungstenite::Message::Ping(_)
+                        | tungstenite::Message::Pong(_)
+                        | tungstenite::Message::Frame(_) => continue,
+                    },
+                    Err(error) => Poll::Ready(Some(Err(error.into()))),
                 },
-                Err(error) => Poll::Ready(Some(Err(error.into()))),
-            },
-            Poll::Ready(None) => {
-                Poll::Ready(Some(Err(XRPLWebSocketException::Disconnected.into())))
-            }
-            Poll::Pending => Poll::Pending,
+                Poll::Ready(None) => {
+                    Poll::Ready(Some(Err(XRPLWebSocketException::Disconnected.into())))
+                }
+                Poll::Pending => Poll::Pending,
+            };
         }
     }
 }

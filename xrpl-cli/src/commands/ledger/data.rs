@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::ledger_data::LedgerData;
 
-use crate::commands::global::{NetworkArgs, DEFAULT_PAGINATION_LIMIT};
+use crate::commands::global::{NetworkArgs, OutputArgs, DEFAULT_PAGINATION_LIMIT};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -22,6 +22,9 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: NetworkArgs,
+
+    #[command(flatten)]
+    pub output: OutputArgs,
 }
 
 impl Cmd {
@@ -38,7 +41,15 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
 
-        output::response(client.request(self.request().into()), "Ledger data")
+        let response = client
+            .request(self.request().into())
+            .map_err(Error::Client)?;
+
+        output::response(
+            &client::ok_result(&response)?,
+            "Ledger data",
+            self.output.json,
+        )
     }
 }
 
@@ -59,6 +70,7 @@ mod tests {
                 url: None,
                 network: None,
             },
+            output: crate::commands::global::OutputArgs { json: false },
         };
 
         let lookup = cmd.request().ledger_lookup.expect("lookup set");

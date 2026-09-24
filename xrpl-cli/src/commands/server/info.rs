@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::server_info::ServerInfo;
 
-use crate::commands::global::NetworkArgs;
+use crate::commands::global::{NetworkArgs, OutputArgs};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -10,6 +10,9 @@ use crate::{client, output};
 pub struct Cmd {
     #[command(flatten)]
     pub network: NetworkArgs,
+
+    #[command(flatten)]
+    pub output: OutputArgs,
 }
 
 impl Cmd {
@@ -17,6 +20,11 @@ impl Cmd {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
         let request = ServerInfo::builder().build();
 
-        output::response(client.request(request.into()), "Server info")
+        let response = client.request(request.into()).map_err(Error::Client)?;
+        output::response(
+            &client::ok_result(&response)?,
+            "Server info",
+            self.output.json,
+        )
     }
 }
