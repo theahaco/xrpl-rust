@@ -129,22 +129,79 @@ pub fn encode_for_signing_claim(channel: &str, amount: &str) -> XRPLCoreResult<S
     Ok(hex::encode_upper(&buf))
 }
 
-/// Encode a Batch transaction for signing.
+/// Encode a `BatchSigner`'s pre-image for signing, framed.
 ///
-/// This produces the serialized data that must be signed to authorize
-/// a batch transaction. The format is:
-/// - 4 bytes: HashPrefix `0x42434800` ("BCH\0")
-/// - 4 bytes: flags (UInt32, big-endian)
-/// - 4 bytes: number of txIDs (UInt32, big-endian)
-/// - N × 32 bytes: each txID (Hash256)
+/// What a co-signer signs to authorize its own inner transaction inside
+/// somebody else's `Batch`:
+///
+/// - 4 bytes: HashPrefix `0x42434800` (`BCH\0`)
+/// - 20 bytes: the outer transaction's `Account`
+/// - 4 bytes: the outer sequence — its `Sequence`, or its `TicketSequence`
+///   when `Sequence` is 0
+/// - 4 bytes: the outer `Flags`
+/// - 4 bytes: the number of inner transactions
+/// - N × 32 bytes: each inner transaction ID, in `RawTransactions` order
+/// - 20 bytes: this signer's own `Account`
+///
+/// **This changed.** It used to emit `prefix ++ flags ++ count ++ ids`, which is
+/// an earlier draft of XLS-56 and is what xrpl.js's "can create batch blob" test
+/// pins. rippled 3.4.0-rc1 rejects a signature over that with
+/// `fails local checks: Invalid signature.`, verified against a live node — so
+/// the old shape produced `BatchSigners` entries no network would accept, and
+/// keeping it for compatibility would only have preserved a trap.
 ///
 /// See Batch Transaction:
 /// `<https://xrpl.org/docs/references/protocol/transactions/types/batch>`
-pub fn encode_for_signing_batch(flags: u32, tx_ids: &[&str]) -> XRPLCoreResult<String> {
-    let mut buf = alloc::vec::Vec::with_capacity(4 + 4 + 4 + tx_ids.len() * 32);
-    buf.extend_from_slice(&BATCH_PREFIX);
+pub fn encode_for_signing_batch(
+    account: &str,
+    sequence: u32,
+    flags: u32,
+    tx_ids: &[&str],
+    signer: &str,
+) -> XRPLCoreResult<String> {
+    let mut buf = alloc::vec::Vec::from(BATCH_PREFIX);
+    buf.extend_from_slice(&encode_for_signing_batch_unframed(
+        account, sequence, flags, tx_ids, signer,
+    )?);
+
+    Ok(hex::encode_upper(&buf))
+}
+
+/// The batch pre-image **without** its `BCH\0` prefix.
+///
+/// The half a signer can be handed. `RawSigner::sign` frames every payload it
+/// is given and never accepts pre-framed bytes — that is what keeps a signer
+/// from being talked into signing under the wrong domain — so a caller that
+/// wants a batch signature computes this and passes
+/// `SigningDomain::BatchInner`, whose `frame()` prepends exactly the prefix
+/// [`encode_for_signing_batch`] prepends here.
+///
+/// Returns bytes rather than hex because that is what a signer takes.
+///
+/// # The shape
+///
+/// ```text
+/// outer AccountID (20) ++ outer sequence (u32) ++ outer Flags (u32)
+///   ++ inner count (u32) ++ each inner ID (32) ++ this signer's AccountID (20)
+/// ```
+///
+/// `sequence` is the outer transaction's `Sequence`, or its `TicketSequence`
+/// when `Sequence` is 0. `signer` is the `BatchSigner`'s own account, so every
+/// entry in one `BatchSigners` array signs different bytes.
+pub fn encode_for_signing_batch_unframed(
+    account: &str,
+    sequence: u32,
+    flags: u32,
+    tx_ids: &[&str],
+    signer: &str,
+) -> XRPLCoreResult<alloc::vec::Vec<u8>> {
+    let mut buf = alloc::vec::Vec::with_capacity(20 + 4 + 4 + 4 + tx_ids.len() * 32 + 20);
+
+    buf.extend_from_slice(&crate::core::addresscodec::decode_classic_address(account)?);
+    buf.extend_from_slice(&sequence.to_be_bytes());
     buf.extend_from_slice(&flags.to_be_bytes());
     buf.extend_from_slice(&(tx_ids.len() as u32).to_be_bytes());
+
     for tx_id in tx_ids {
         let id_bytes = hex::decode(tx_id).map_err(|_| {
             super::exceptions::XRPLCoreException::XRPLBinaryCodecError(
@@ -164,7 +221,10 @@ pub fn encode_for_signing_batch(flags: u32, tx_ids: &[&str]) -> XRPLCoreResult<S
         }
         buf.extend_from_slice(&id_bytes);
     }
-    Ok(hex::encode_upper(&buf))
+
+    buf.extend_from_slice(&crate::core::addresscodec::decode_classic_address(signer)?);
+
+    Ok(buf)
 }
 
 /// Decode a hex-encoded XRPL binary blob into a JSON object.
@@ -741,5 +801,79 @@ mod test {
             mptoken_binary.to_uppercase(),
             "MPToken re-encode does not match authoritative vector"
         );
+    }
+}
+
+#[cfg(test)]
+mod batch_signing_tests {
+    use super::*;
+
+    const ACCOUNT: &str = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+    const SIGNER: &str = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
+    const IDS: [&str; 2] = [
+        "5C28FF411B6DE8D99517FA41B0050339FF80BA36CE78AF34E397F82F1510D7FC",
+        "3A90E68520ECAFC3BDA475811BD5E62AF79F8EB704E3789A04041A539930918A",
+    ];
+
+    #[test]
+    fn test_framing_the_unframed_pre_image_reproduces_the_framed_one() {
+        // The split has to be exactly that — a split. A signer frames what it
+        // is given, so these two must compose back to the same bytes or a
+        // batch co-signer signs something the outer transaction never
+        // committed to.
+        let framed = encode_for_signing_batch(ACCOUNT, 7, 65536, &IDS, SIGNER).expect("frames");
+        let unframed =
+            encode_for_signing_batch_unframed(ACCOUNT, 7, 65536, &IDS, SIGNER).expect("builds");
+
+        let composed = crate::signer::frame(&crate::signer::SigningDomain::BatchInner, &unframed)
+            .expect("frames");
+
+        assert_eq!(hex::encode_upper(&composed), framed);
+    }
+
+    #[test]
+    fn test_the_pre_image_is_account_sequence_flags_count_ids_then_signer() {
+        let unframed =
+            encode_for_signing_batch_unframed(ACCOUNT, 7, 65536, &IDS, SIGNER).expect("builds");
+
+        assert_eq!(unframed.len(), 20 + 4 + 4 + 4 + 2 * 32 + 20);
+        assert_eq!(&unframed[20..24], &7u32.to_be_bytes());
+        assert_eq!(&unframed[24..28], &65536u32.to_be_bytes());
+        assert_eq!(&unframed[28..32], &2u32.to_be_bytes());
+        assert_eq!(
+            hex::encode_upper(&unframed[32..64]),
+            IDS[0],
+            "the ids keep the order the outer transaction commits to"
+        );
+    }
+
+    #[test]
+    fn test_each_signer_signs_different_bytes() {
+        // The signer's own account is the last field, which is what stops one
+        // co-signer's signature being replayable as another's.
+        let first = encode_for_signing_batch_unframed(ACCOUNT, 7, 0, &IDS, SIGNER).expect("builds");
+        let second =
+            encode_for_signing_batch_unframed(ACCOUNT, 7, 0, &IDS, ACCOUNT).expect("builds");
+
+        assert_ne!(first, second);
+        assert_eq!(first[..first.len() - 20], second[..second.len() - 20]);
+    }
+
+    #[test]
+    fn test_the_framed_form_still_starts_with_the_batch_prefix() {
+        let framed = encode_for_signing_batch(ACCOUNT, 1, 0, &IDS, SIGNER).expect("frames");
+        assert_eq!(&framed[..8], &hex::encode_upper(BATCH_PREFIX));
+    }
+
+    #[test]
+    fn test_an_id_that_is_not_32_bytes_is_refused() {
+        assert!(encode_for_signing_batch(ACCOUNT, 1, 0, &["ABCD"], SIGNER).is_err());
+        assert!(encode_for_signing_batch_unframed(ACCOUNT, 1, 0, &["ABCD"], SIGNER).is_err());
+    }
+
+    #[test]
+    fn test_an_address_that_is_not_an_address_is_refused() {
+        assert!(encode_for_signing_batch_unframed("not-an-address", 1, 0, &IDS, SIGNER).is_err());
+        assert!(encode_for_signing_batch_unframed(ACCOUNT, 1, 0, &IDS, "nope").is_err());
     }
 }

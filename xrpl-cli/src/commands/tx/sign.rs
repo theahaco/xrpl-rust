@@ -26,6 +26,14 @@ pub struct Cmd {
     /// independently and combine the copies with `tx merge`.
     #[arg(long)]
     pub multisign: bool,
+
+    /// Sign a stream without confirming what is in it.
+    ///
+    /// The confirmation only appears for more than one transaction and only
+    /// when there is a terminal, so a pipeline never needs this — it is for a
+    /// person who would rather not be asked.
+    #[arg(long, short = 'y')]
+    pub yes: bool,
 }
 
 impl Cmd {
@@ -50,16 +58,94 @@ impl Cmd {
         ));
 
         let mut transactions = io::read_txs(&self.input.tx)?;
-        for transaction in &mut transactions {
-            if self.multisign {
-                multisign_one(transaction, &signer)?;
-            } else {
-                sign_one(transaction, &signer)?;
+
+        // Once for the whole stream, never once per line. A prompt per
+        // transaction would make a stream unusable, and the thing worth
+        // checking is the shape of the batch rather than each line in turn.
+        if transactions.len() > 1 && !self.yes && crate::tty::is_interactive() {
+            output::note(summarize(&transactions));
+
+            if !crate::tty::confirm(&format!("Sign {} transactions?", transactions.len()))? {
+                return Err(
+                    crate::error::SignerError::Declined("not signing the stream".into()).into(),
+                );
             }
         }
 
-        io::write_txs(&transactions)
+        // Written as each line is signed, not buffered until the loop ends. A
+        // signature is already in the journal the moment it is made, so holding
+        // it back and then discarding it on a later line's failure loses work
+        // the machine has already recorded doing — and for a multisign
+        // collection, a signature nobody can see is a signature nobody has.
+        for (index, transaction) in transactions.iter_mut().enumerate() {
+            let result = if self.multisign {
+                multisign_one(transaction, &signer)
+            } else {
+                sign_one(transaction, &signer)
+            };
+
+            if let Err(error) = result {
+                return Err(Error::other(format!(
+                    "line {}: {error}. The {} line(s) before it are signed and on stdout.",
+                    index + 1,
+                    index
+                )));
+            }
+
+            io::write_txs(std::slice::from_ref(transaction))?;
+        }
+
+        Ok(())
     }
+}
+
+/// What is about to be signed, in one paragraph.
+///
+/// Line count, the accounts paying, the types, and the XRP moved — the four
+/// things that distinguish "fund four accounts" from "empty this one".
+fn summarize(transactions: &[Value]) -> String {
+    use std::collections::BTreeSet;
+
+    let accounts: BTreeSet<&str> = transactions
+        .iter()
+        .filter_map(|tx| tx.get("Account").and_then(Value::as_str))
+        .collect();
+
+    let types: BTreeSet<&str> = transactions
+        .iter()
+        .filter_map(|tx| tx.get("TransactionType").and_then(Value::as_str))
+        .collect();
+
+    // XRP only: an `Amount` that is an object is an issued currency or an MPT,
+    // and summing those into one number would invent a total that means
+    // nothing.
+    let drops: u64 = transactions
+        .iter()
+        .filter_map(|tx| tx.get("Amount"))
+        .filter_map(|amount| amount.as_str())
+        .filter_map(|amount| amount.parse::<u64>().ok())
+        .sum();
+
+    let mut summary = format!(
+        "{} transactions, {} ({}), from {}",
+        transactions.len(),
+        types.iter().copied().collect::<Vec<_>>().join(", "),
+        if types.len() == 1 {
+            "one type"
+        } else {
+            "mixed"
+        },
+        accounts.iter().copied().collect::<Vec<_>>().join(", ")
+    );
+
+    if drops > 0 {
+        summary.push_str(&format!(
+            ", moving {} XRP in XRP payments",
+            drops as f64 / 1_000_000.0
+        ));
+    }
+
+    summary
 }
 
 /// Sign one transaction in place.
@@ -445,6 +531,77 @@ mod tests {
         assert!(
             xrpl::core::keypairs::is_valid_message(&bytes, &signature, &public_key),
             "signature does not verify against the transaction it was made for"
+        );
+    }
+}
+
+#[cfg(test)]
+mod stream_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn payment(account: &str, drops: &str) -> Value {
+        json!({
+            "TransactionType": "Payment",
+            "Account": account,
+            "Destination": "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
+            "Amount": drops,
+        })
+    }
+
+    #[test]
+    fn test_the_summary_names_the_count_type_accounts_and_total() {
+        let stream = vec![payment("rA", "1000000"), payment("rA", "2500000")];
+        let summary = summarize(&stream);
+
+        assert!(summary.starts_with("2 transactions"), "{summary}");
+        assert!(summary.contains("Payment"), "{summary}");
+        assert!(summary.contains("one type"), "{summary}");
+        assert!(summary.contains("rA"), "{summary}");
+        assert!(summary.contains("3.5 XRP"), "{summary}");
+    }
+
+    #[test]
+    fn test_a_mixed_stream_says_so_and_lists_every_account() {
+        let stream = vec![
+            payment("rA", "1000000"),
+            json!({"TransactionType": "AccountSet", "Account": "rB"}),
+        ];
+        let summary = summarize(&stream);
+
+        assert!(summary.contains("mixed"), "{summary}");
+        assert!(summary.contains("rA"), "{summary}");
+        assert!(summary.contains("rB"), "{summary}");
+    }
+
+    #[test]
+    fn test_an_issued_amount_is_not_counted_as_xrp() {
+        // Summing an issued currency or an MPT into the XRP total would invent
+        // a number that means nothing.
+        let stream = vec![
+            payment("rA", "1000000"),
+            json!({
+                "TransactionType": "Payment", "Account": "rA",
+                "Amount": {"currency": "USD", "issuer": "rI", "value": "500"},
+            }),
+        ];
+
+        let summary = summarize(&stream);
+        assert!(summary.contains("1 XRP"), "{summary}");
+        assert!(!summary.contains("501"), "{summary}");
+    }
+
+    #[test]
+    fn test_a_stream_that_moves_no_xrp_says_nothing_about_xrp() {
+        let stream = vec![
+            json!({"TransactionType": "AccountSet", "Account": "rA"}),
+            json!({"TransactionType": "AccountSet", "Account": "rA"}),
+        ];
+
+        assert!(
+            !summarize(&stream).contains("XRP"),
+            "{}",
+            summarize(&stream)
         );
     }
 }

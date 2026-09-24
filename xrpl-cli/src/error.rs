@@ -33,6 +33,26 @@ pub enum Error {
     Core(#[from] xrpl::core::exceptions::XRPLCoreException),
     #[error("Signer error: {0}")]
     Signer(#[from] SignerError),
+    /// A batch was folded with the wrong number of inner transactions.
+    #[error("a Batch holds 2 to 8 inner transactions, got {found}")]
+    BatchSize { found: usize },
+
+    /// More batch co-signers than the ledger accepts.
+    #[error("a Batch carries at most 24 BatchSigners (three per inner transaction), got {found}")]
+    BatchSignerCount { found: usize },
+
+    /// An inner transaction is not authorized by exactly one thing.
+    #[error("an inner transaction must carry exactly one of a non-zero Sequence or a TicketSequence: {detail}")]
+    BatchInnerSequence { detail: String },
+
+    /// A fold crossed networks.
+    ///
+    /// Replay protection: the outer signature vouches for every inner ID it
+    /// commits to, so a batch is the easiest place to fold in a transaction
+    /// built for another chain.
+    #[error("the batch crosses networks: {detail}")]
+    BatchNetworkMismatch { detail: String },
+
     /// The node answered, and its answer was an error.
     ///
     /// Distinct from [`Error::Client`], which is a transport failure, and from
@@ -104,7 +124,13 @@ impl Error {
     /// unreachable node and a `tec` result were indistinguishable to a caller.
     pub fn exit_code(&self) -> ExitCode {
         ExitCode::from(match self {
-            Error::UrlParse(_) | Error::Json(_) | Error::Other(_) => exit::USAGE,
+            Error::UrlParse(_)
+            | Error::Json(_)
+            | Error::Other(_)
+            | Error::BatchSize { .. }
+            | Error::BatchSignerCount { .. }
+            | Error::BatchInnerSequence { .. }
+            | Error::BatchNetworkMismatch { .. } => exit::USAGE,
             Error::Client(_) | Error::Node { .. } => exit::NETWORK,
             Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) | Error::Toml(_) => {
                 exit::USAGE

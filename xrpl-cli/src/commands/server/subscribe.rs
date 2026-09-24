@@ -77,7 +77,7 @@ impl Cmd {
                 // subscription and added 100ms of latency to every event.
                 match websocket.next().await {
                     Some(frame) => {
-                        println!("{}", frame.map_err(Error::Client)?.trim());
+                        output::raw_line(frame.map_err(Error::Client)?.trim())?;
                         count += 1;
                     }
                     // The stream ended. Not an error: a node closing the socket
