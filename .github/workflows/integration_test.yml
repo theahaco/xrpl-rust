@@ -169,6 +169,37 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
+      # The epic's acceptance gate: the whole `xrpl tx` pipeline and the
+      # account/key records, exercised as a person would from a shell rather
+      # than through the test harness. It issues an MPT from an account whose
+      # master key is disabled and which is controlled 2-of-3, collecting the
+      # quorum both serially and in parallel.
+      #
+      # Built through `show-env` so it reuses the instrumented artifacts the
+      # steps above produced — a plain `cargo build` here would use different
+      # RUSTFLAGS and rebuild the world — and so its coverage counts.
+      - name: Run the token ceremony
+        run: |
+          set -euo pipefail
+          source <(cargo llvm-cov show-env --export-prefix)
+          # The path comes from cargo rather than from a guessed target
+          # directory: `show-env` relocates it, and a stale binary elsewhere
+          # would silently pass this gate against last commit's code.
+          XRPL_BIN=$(cargo build --release -p xrpl-cli --bin xrpl \
+              --message-format=json \
+            | jq -r 'select(.reason == "compiler-artifact")
+                     | select(.target.name == "xrpl") | .executable // empty' \
+            | tail -n1)
+          [[ -x "$XRPL_BIN" ]] || { echo "did not build an xrpl binary" >&2; exit 1; }
+          export XRPL_BIN
+          export XRPL_DATA_DIR="$(mktemp -d)"
+          export XRPL_CONFIG_DIR="$(mktemp -d)"
+          export XRPL_NETWORK=local
+
+          ./xrpl-cli/demo/token-ceremony.sh all
+        env:
+          RUST_BACKTRACE: 1
+
       - name: Generate lcov report (scoped to integration territory)
         run: |
           cargo llvm-cov report --release \

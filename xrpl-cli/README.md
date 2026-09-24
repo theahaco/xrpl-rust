@@ -58,9 +58,38 @@ umask 077 && printf '%s\n' "$GENESIS_SEED" > genesis.seed   # never via the CLI
 xrpl tx sign --seed-file genesis.seed
 ```
 
-Encrypted-at-rest key records are a later change. What ships today is
-**plaintext on disk, protected by the permissions you give it** — `--seed-file`
-refuses a file, or a directory, that anyone else can read.
+`--seed-file` refuses a file, or a directory, that anyone else can read, and it
+is a *pure* stage: it journals nothing and touches no store, so it works on a
+read-only container and in CI.
+
+### Or enrol the key once
+
+`key add` and `key generate` record a key under a name you choose and encrypt
+the seed under a passphrase. `tx sign --sign-with <name>` then signs without a
+seed anywhere in `argv`:
+
+```sh
+xrpl key generate issuer --show-secret        # the 16-byte seed IS the backup
+xrpl account add issuer --address rISSUER… --network-id 0 \
+      --key issuer --default-signer issuer
+
+xrpl tx new Payment --account issuer --field Destination=rDEST… --field Amount=1 \
+  | xrpl tx autofill --network testnet \
+  | xrpl tx sign --sign-with issuer \
+  | xrpl tx submit --wait --network testnet
+```
+
+The passphrase comes from a prompt, or from `XRPL_PASSPHRASE` when there is no
+terminal — stdin carries the transaction, so it cannot travel that way.
+
+What this claims is **encrypted at rest, plaintext in process memory at signing
+time**, and nothing stronger: it defends against a stolen laptop, a record
+committed to a repository, a dotfiles sync and a backup, but not against malware
+running as you while you sign.
+
+Every signature made through a key record is appended to `signing.log` in the
+data directory — the key id, the address and the signing domain. Never the
+payload, never the secret.
 
 ## Layout
 
@@ -69,11 +98,15 @@ One module per command, grouped by domain:
 ```
 src/commands/
   global.rs            --url / --network, shared defaults
+  tx/                  new, autofill, sign, multisign, merge, submit, hash, digest, blob, decode, …
+  account/             add, ls, show, rm, use, doctor  +  info, tx, objects, channels, currencies, lines, nfts
+  key/                 add, generate, enrol, export, ls, show, rm
   wallet/              generate, from-seed, faucet, validate
-  account/             info, tx, objects, channels, currencies, lines, nfts, set-flag, clear-flag
-  transaction/         sign, submit, trust-set, nft-mint, nft-burn
   server/              fee, info, subscribe
   ledger/              data
+  rpc.rs               any method, by name
+src/store/             account and key records, the encrypted blobs, the journal
+src/signer/            resolving a name to something that can sign
 ```
 
 Each leaf module holds one `Cmd` struct carrying that command's `clap` arguments and a `run` method, so the flags and the code reading them live in the same file. `client`, `output` and `error` hold the plumbing they share.
@@ -84,3 +117,18 @@ Each leaf module holds one `Cmd` struct carrying that command's `clap` arguments
 cargo test -p xrpl-cli                                   # unit tests
 cargo test -p xrpl-cli --features integration            # drives the binary against a standalone node on :5005
 ```
+
+`demo/token-ceremony.sh` is the acceptance gate, and the best worked example of
+everything above. It issues an MPT from an account whose master key is disabled
+and which is controlled 2-of-3, collecting the quorum both serially (one
+operator, one pipeline) and in parallel (three operators, `tx merge`) — using
+only `xrpl` commands.
+
+```bash
+export XRPL_DATA_DIR=$(mktemp -d) XRPL_CONFIG_DIR=$(mktemp -d)
+XRPL_NETWORK=local ./xrpl-cli/demo/token-ceremony.sh all
+```
+
+It refuses to run without `XRPL_DATA_DIR`, so it can never write into a real
+store. Individual stages (`setup:issuer`, `mint`, `redistribute`, `status`) run
+on their own and re-derive what they need.
