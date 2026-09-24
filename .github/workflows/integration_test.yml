@@ -164,6 +164,7 @@ jobs:
             --test rpc \
             --test tx \
             --test records \
+            --test keystore \
             -- --test-threads=1
         env:
           RUST_BACKTRACE: 1

@@ -1,0 +1,362 @@
+//! The encrypted key store.
+
+mod common;
+
+use common::{standalone_available, TestEnv, GENESIS_ADDRESS, GENESIS_SEED, STANDALONE_URL};
+
+/// Skip rather than fail when the standalone container is not running.
+macro_rules! require_standalone {
+    ($env:expr) => {
+        if !standalone_available($env) {
+            eprintln!("skipping: no standalone node at {STANDALONE_URL}");
+            return;
+        }
+    };
+}
+
+const DESTINATION: &str = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
+
+/// A test environment with a passphrase supplied the way a script would.
+///
+/// stdin carries the transaction, so a passphrase cannot travel that way. This
+/// is the documented non-interactive path, and it is what the error names when
+/// there is no terminal to prompt on.
+fn env_with_passphrase() -> TestEnv {
+    TestEnv::new().env("XRPL_PASSPHRASE", "a test passphrase")
+}
+
+/// Enrol the genesis seed, without it ever reaching `argv`.
+fn enrol_genesis(env: &TestEnv, id: &str) {
+    let path = private_seed_file(env);
+
+    env.run(&["key", "add", id, "--seed-file", path.to_str().unwrap()])
+        .assert_success();
+}
+
+/// A seed file, and a directory, that only its owner can read.
+///
+/// Both halves matter: a 0600 file inside a 0755 directory is still one anyone
+/// can find, which is why the reader checks the directory too.
+fn private_seed_file(env: &TestEnv) -> std::path::PathBuf {
+    let dir = env.path().join("keys");
+    std::fs::create_dir_all(&dir).expect("create");
+    let path = dir.join("genesis.seed");
+    std::fs::write(&path, format!("{GENESIS_SEED}\n")).expect("write");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700)).expect("chmod dir");
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("chmod");
+    }
+
+    path
+}
+
+#[test]
+fn test_an_enrolled_key_is_encrypted_at_rest() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let blob = std::fs::read_to_string(env.data_dir().join("secrets/genesis.age")).expect("read");
+
+    // The property the whole design rests on: nothing this CLI writes contains
+    // key material in the clear.
+    assert!(!blob.contains(GENESIS_SEED), "{blob}");
+    assert!(
+        blob.starts_with("-----BEGIN AGE ENCRYPTED FILE-----"),
+        "{blob}"
+    );
+
+    // And the record points at it rather than holding it.
+    let record = std::fs::read_to_string(env.data_dir().join("keys/genesis.toml")).expect("read");
+    assert!(!record.contains(GENESIS_SEED), "{record}");
+    assert!(record.contains("encrypted-file"), "{record}");
+}
+
+#[test]
+fn test_the_recorded_address_matches_the_seed() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let shown = env.run(&["key", "show", "genesis", "--json"]);
+    shown.assert_success();
+
+    assert_eq!(shown.stdout_json()["classic_address"], GENESIS_ADDRESS);
+    assert_eq!(shown.stdout_json()["algorithm"], "secp256k1");
+}
+
+#[test]
+fn test_generate_enrols_and_can_show_the_secret_once() {
+    let env = env_with_passphrase();
+
+    let generated = env.run(&["key", "generate", "alice", "--show-secret"]);
+    generated.assert_success();
+
+    let value = generated.stdout_json();
+    let seed = value["seed"].as_str().expect("seed");
+    assert!(seed.starts_with('s'), "{seed}");
+
+    // The 16-byte family seed *is* the backup — there is no mnemonic
+    // convention here — so a run without --show-secret says so rather than
+    // leaving someone with a key they cannot record.
+    let quiet = env.run(&["key", "generate", "bob"]);
+    quiet.assert_success();
+    assert!(quiet.stdout_json()["seed"].is_null());
+    quiet.assert_stderr_contains("the seed was not printed");
+}
+
+#[test]
+fn test_export_requires_saying_what_it_does() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let refused = env.run(&["key", "export", "genesis"]);
+    refused.assert_code(1);
+    refused.assert_stderr_contains("prints key material");
+
+    let exported = env.run(&[
+        "key",
+        "export",
+        "genesis",
+        "--i-understand-this-prints-a-secret",
+    ]);
+    exported.assert_success();
+    assert_eq!(exported.stdout_json()["seed"], GENESIS_SEED);
+}
+
+#[test]
+fn test_a_wrong_passphrase_does_not_unlock() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let wrong = TestEnv::reusing(env.path()).env("XRPL_PASSPHRASE", "not the passphrase");
+    let output = wrong.run(&[
+        "key",
+        "export",
+        "genesis",
+        "--i-understand-this-prints-a-secret",
+    ]);
+
+    output.assert_code(1);
+    // One message for a wrong passphrase and a damaged file: telling them
+    // apart tells an attacker which half they have.
+    output.assert_stderr_contains("wrong passphrase, or the file is damaged");
+}
+
+#[test]
+fn test_a_record_whose_secret_is_missing_is_unavailable_not_missing() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    // What it looks like when records sync between machines and secrets do not.
+    std::fs::remove_file(env.data_dir().join("secrets/genesis.age")).expect("remove");
+
+    let output = env.run(&[
+        "key",
+        "export",
+        "genesis",
+        "--i-understand-this-prints-a-secret",
+    ]);
+
+    // Exit 6, not 4. The record is here; the secret is not, and the remedy is
+    // different.
+    output.assert_code(6);
+
+    // And `doctor` says so in those terms.
+    let report = env.run(&["account", "doctor", "--json"]);
+    report.assert_success();
+}
+
+#[test]
+fn test_signing_with_a_stored_key_needs_no_seed_in_argv() {
+    let env = env_with_passphrase();
+    require_standalone!(&env);
+    let _guard = common::blockchain_lock();
+
+    enrol_genesis(&env, "genesis");
+    env.run(&[
+        "account",
+        "add",
+        "genesis",
+        "--address",
+        GENESIS_ADDRESS,
+        "--network-id",
+        "0",
+        "--key",
+        "genesis",
+        "--default-signer",
+        "genesis",
+    ])
+    .assert_success();
+
+    let built = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        "genesis",
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "400000000",
+    ]);
+    built.assert_success();
+
+    let filled = env.run_with_stdin(
+        &["tx", "autofill", "--url", STANDALONE_URL],
+        built.stdout.as_bytes(),
+    );
+    filled.assert_success();
+
+    let signed = env.run_with_stdin(
+        &["tx", "sign", "--sign-with", "genesis"],
+        filled.stdout.as_bytes(),
+    );
+    signed.assert_success();
+    signed.assert_stderr_contains(GENESIS_ADDRESS);
+
+    let submitted = env.run_with_stdin(
+        &[
+            "tx",
+            "submit",
+            "--wait",
+            "--accept-ledger",
+            "--url",
+            STANDALONE_URL,
+        ],
+        signed.stdout.as_bytes(),
+    );
+    submitted.assert_success();
+    assert_eq!(
+        submitted.stdout_json()["meta"]["TransactionResult"],
+        "tesSUCCESS"
+    );
+}
+
+#[test]
+fn test_the_journal_records_the_signature_and_no_secret() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let built = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        GENESIS_ADDRESS,
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "1000000",
+        "--field",
+        "Fee=12",
+        "--field",
+        "Sequence=1",
+    ]);
+    built.assert_success();
+
+    env.run_with_stdin(
+        &["tx", "sign", "--sign-with", "genesis"],
+        built.stdout.as_bytes(),
+    )
+    .assert_success();
+
+    let journal = std::fs::read_to_string(env.data_dir().join("signing.log")).expect("read");
+
+    // It is the only thing that answers "was my key used, and for what" after
+    // the fact — the ledger only knows what was submitted.
+    assert!(journal.contains("genesis"), "{journal}");
+    assert!(journal.contains(GENESIS_ADDRESS), "{journal}");
+    assert!(journal.contains("Single"), "{journal}");
+
+    // Never the payload, never the secret.
+    assert!(!journal.contains(GENESIS_SEED), "{journal}");
+    assert!(!journal.contains(DESTINATION), "{journal}");
+}
+
+#[test]
+fn test_the_ephemeral_backend_writes_no_journal() {
+    let env = TestEnv::new();
+
+    let path = private_seed_file(&env);
+
+    let built = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        GENESIS_ADDRESS,
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "1000000",
+        "--field",
+        "Fee=12",
+        "--field",
+        "Sequence=1",
+    ]);
+    built.assert_success();
+
+    env.run_with_stdin(
+        &["tx", "sign", "--seed-file", path.to_str().unwrap()],
+        built.stdout.as_bytes(),
+    )
+    .assert_success();
+
+    // `tx sign --seed-file` stays a pure crypto stage with no filesystem
+    // dependency, so it works on a read-only container, in a sandbox, and in CI.
+    assert!(
+        !env.data_dir().join("signing.log").exists(),
+        "the ephemeral backend must not journal"
+    );
+}
+
+#[test]
+fn test_a_watch_only_key_cannot_sign() {
+    let env = env_with_passphrase();
+
+    let generated = env.run(&["wallet", "generate", "--show-secret"]);
+    generated.assert_success();
+    let public_key = generated.stdout_json()["public_key"]
+        .as_str()
+        .expect("public key")
+        .to_string();
+
+    env.run(&["key", "add", "watcher", "--public-key", &public_key])
+        .assert_success();
+
+    let built = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        GENESIS_ADDRESS,
+        "--destination",
+        DESTINATION,
+        "--amount",
+        "1000000",
+        "--field",
+        "Fee=12",
+        "--field",
+        "Sequence=1",
+    ]);
+    built.assert_success();
+
+    let output = env.run_with_stdin(
+        &["tx", "sign", "--sign-with", "watcher"],
+        built.stdout.as_bytes(),
+    );
+
+    output.assert_code(6);
+    output.assert_stderr_contains("watch-only");
+}
+
+#[test]
+fn test_key_add_with_nothing_to_record_says_so() {
+    let env = env_with_passphrase();
+
+    let output = env.run(&["key", "add", "nothing"]);
+    output.assert_code(1);
+    output.assert_stderr_contains("nothing to record");
+}

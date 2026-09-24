@@ -10,5 +10,7 @@
 //! the seam in the library.
 
 pub mod ephemeral;
+pub mod stored;
 
 pub use ephemeral::SigningArgs;
+pub use stored::StoredSigner;

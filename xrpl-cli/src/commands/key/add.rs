@@ -1,6 +1,9 @@
 //! `xrpl key add` — record a public key.
 
+use std::io::Read;
+
 use xrpl::core::keypairs::derive_classic_address;
+use zeroize::Zeroize;
 
 use crate::error::Error;
 use crate::output;
@@ -11,9 +14,21 @@ pub struct Cmd {
     /// What to call this key. You choose the name; `--sign-with` uses it.
     pub id: String,
 
-    /// The public key, as uppercase hex.
-    #[arg(long, value_name = "HEX")]
-    pub public_key: String,
+    /// Record a public key only: it can be recognized, never used.
+    #[arg(long, value_name = "HEX", conflicts_with_all = ["seed_file", "seed_stdin"])]
+    pub public_key: Option<String>,
+
+    /// Enrol the seed in this file. It is encrypted before being stored.
+    #[arg(long, value_name = "PATH")]
+    pub seed_file: Option<std::path::PathBuf>,
+
+    /// Enrol a seed read from stdin.
+    ///
+    /// Available here and nowhere else: every `tx` stage reads its transaction
+    /// from stdin, so a seed cannot travel that way once a pipeline is running.
+    /// At enrolment nothing else wants the descriptor.
+    #[arg(long, conflicts_with = "seed_file")]
+    pub seed_stdin: bool,
 
     /// Replace an existing record of the same name.
     #[arg(long)]
@@ -32,7 +47,25 @@ impl Cmd {
             )));
         }
 
-        let public_key = self.public_key.to_uppercase();
+        if let Some(seed) = self.read_seed()? {
+            let mut seed = seed;
+            let record = super::enrol::enrol(&store, &self.id, &seed)?;
+            seed.zeroize();
+
+            output::note(format!("enrolled {}, encrypted at rest", self.id));
+            return output::artifact(&super::describe(&self.id, &record));
+        }
+
+        let public_key = self
+            .public_key
+            .as_ref()
+            .ok_or_else(|| {
+                Error::other(
+                    "nothing to record: pass --public-key for a watch-only key, or \
+                     --seed-file / --seed-stdin to enrol one that can sign",
+                )
+            })?
+            .to_uppercase();
 
         // Derived rather than asked for, and cached, so listing records never
         // has to compute anything.
@@ -67,5 +100,32 @@ impl Cmd {
         ));
 
         output::artifact(&super::describe(&self.id, &record))
+    }
+
+    /// The seed to enrol, if one was offered.
+    fn read_seed(&self) -> Result<Option<String>, Error> {
+        if let Some(path) = &self.seed_file {
+            // The same reader the signing ladder uses, so enrolment and signing
+            // agree about what an acceptable seed file is — including refusing
+            // one whose directory anyone can read.
+            return Ok(Some(crate::signer::ephemeral::read_seed_file(path)?));
+        }
+
+        if self.seed_stdin {
+            let mut buffer = String::new();
+            std::io::stdin()
+                .read_to_string(&mut buffer)
+                .map_err(Error::Io)?;
+            let seed = buffer.lines().next().unwrap_or_default().trim().to_string();
+            buffer.zeroize();
+
+            if seed.is_empty() {
+                return Err(Error::other("nothing on stdin"));
+            }
+
+            return Ok(Some(seed));
+        }
+
+        Ok(None)
     }
 }

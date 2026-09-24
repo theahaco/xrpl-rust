@@ -21,6 +21,9 @@ xrpl-rust = { version = "1.2.0", path = ".." }
 
 bip39 = { version = "2.1.0", features = ["rand_core", "zeroize"] }
 clap = { version = "4.5.39", features = ["derive", "env"] }
+# Passphrase encryption for key material: scrypt + ChaCha20-Poly1305 in a
+# reviewed, specified format, rather than a hand-rolled one.
+age = { version = "0.11", default-features = false, features = ["armor"] }
 hex = "0.4.3"
 rand = "0.8.5"
 # Reads a secret from the controlling terminal with echo off, and restores the
@@ -28,6 +31,7 @@ rand = "0.8.5"
 # whose layout differs between macOS and Linux.
 rpassword = "7"
 serde = { version = "1.0", features = ["derive"] }
+secrecy = "0.10"
 serde_json = "1.0"
 toml = "0.8"
 thiserror-no-std = "2.0.2"

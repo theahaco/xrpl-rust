@@ -99,7 +99,7 @@ impl Cmd {
                     KeySource::WatchOnly => findings.push(format!(
                         "key {key_id} is watch-only: it can be recognized, not used"
                     )),
-                    KeySource::EncryptedFile { path } if !std::path::Path::new(path).exists() => {
+                    KeySource::EncryptedFile { path } if !store.has_secret(path) => {
                         findings.push(format!(
                             "key {key_id}: the record is here and {path} is not. Records \
                              sync between machines and secrets do not, so in a ceremony \

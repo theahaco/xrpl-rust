@@ -134,33 +134,49 @@ impl CliOutput {
 /// records into the developer's real home directory and enrols keys in their
 /// real credential store. Four lines here, versus re-touching every helper.
 pub struct TestEnv {
-    dir: tempfile::TempDir,
+    /// `None` when this env borrows a directory another one owns.
+    dir: Option<tempfile::TempDir>,
+    root: PathBuf,
     extra: HashMap<String, String>,
 }
 
 impl TestEnv {
     pub fn new() -> Self {
         let dir = tempfile::tempdir().expect("temp dir");
+        let root = dir.path().to_path_buf();
         for sub in ["data", "config", "home"] {
-            std::fs::create_dir_all(dir.path().join(sub)).expect("create test dirs");
+            std::fs::create_dir_all(root.join(sub)).expect("create test dirs");
         }
 
         Self {
-            dir,
+            dir: Some(dir),
+            root,
+            extra: HashMap::new(),
+        }
+    }
+
+    /// A second view of a directory another `TestEnv` owns.
+    ///
+    /// For running one command against the same store with different
+    /// environment — a different passphrase, say.
+    pub fn reusing(path: &Path) -> Self {
+        Self {
+            dir: None,
+            root: path.to_path_buf(),
             extra: HashMap::new(),
         }
     }
 
     pub fn path(&self) -> &Path {
-        self.dir.path()
+        &self.root
     }
 
     pub fn data_dir(&self) -> PathBuf {
-        self.dir.path().join("data")
+        self.root.join("data")
     }
 
     pub fn config_dir(&self) -> PathBuf {
-        self.dir.path().join("config")
+        self.root.join("config")
     }
 
     /// Set an extra environment variable on every child this env spawns.
@@ -197,7 +213,7 @@ impl TestEnv {
             .args(args)
             .env("XRPL_DATA_DIR", self.data_dir())
             .env("XRPL_CONFIG_DIR", self.config_dir())
-            .env("HOME", self.dir.path().join("home"))
+            .env("HOME", self.root.join("home"))
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
