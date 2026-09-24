@@ -100,7 +100,6 @@ mod cli_tests {
     fn assert_wallet_output(output: &str) {
         assert!(output.contains("classic_address"));
         assert!(output.contains("public_key"));
-        assert!(output.contains("private_key"));
     }
 
     /// Helper to create address-related command arguments
@@ -262,7 +261,13 @@ mod cli_tests {
     #[test]
     fn test_generate_faucet_wallet() {
         // Faucet tests must use public testnet - Docker standalone has no faucet
-        let result = run_cli_command(&["wallet", "faucet", "--url", constants::TESTNET_URL]);
+        let result = run_cli_command(&[
+            "wallet",
+            "faucet",
+            "--show-secret",
+            "--url",
+            constants::TESTNET_URL,
+        ]);
 
         assert!(
             result.is_ok(),
@@ -270,8 +275,12 @@ mod cli_tests {
             result.err()
         );
         let output = result.unwrap();
-        assert!(output.contains("Generated faucet wallet:"));
-        assert_wallet_output(&output);
+        assert!(output.contains("classic_address"), "{output}");
+        assert!(output.contains("public_key"), "{output}");
+        // The seed is the only backup a funded account has, and it is printed
+        // only when asked for. The private key never is.
+        assert!(output.contains("seed"), "{output}");
+        assert!(!output.contains("private_key"), "{output}");
     }
 
     // ===== ACCOUNT QUERY TESTS =====
@@ -294,14 +303,14 @@ mod cli_tests {
             "Failed to get account info: {:?}",
             result.err()
         );
-        assert!(result.unwrap().contains("Account info:"));
+        assert!(result.unwrap().contains("account_data"));
     }
 
     #[test]
     fn test_get_fee() {
         assert_cli_command(
             &["server", "fee", "--url", constants::TEST_URL],
-            "Current network fee:",
+            "drops",
             &["Failed to get network fee"],
         );
     }
@@ -316,14 +325,14 @@ mod cli_tests {
             Some(5),
         );
 
-        assert_cli_command(&args, "Account transactions:", &["Account not found"]);
+        assert_cli_command(&args, "\"transactions\"", &["Account not found"]);
     }
 
     #[test]
     fn test_server_info() {
         assert_cli_command(
             &["server", "info"],
-            "Server info:",
+            "\"info\"",
             constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS,
         );
     }
@@ -332,7 +341,7 @@ mod cli_tests {
     fn test_ledger_data() {
         assert_cli_command(
             &["ledger", "data", "--limit", "5"],
-            "Ledger data:",
+            "ledger_index",
             constants::TOLERATED_PUBLIC_ENDPOINT_ERRORS,
         );
     }
@@ -347,7 +356,7 @@ mod cli_tests {
             Some(5),
         );
 
-        assert_cli_command(&args, "Account objects:", &["Account not found"]);
+        assert_cli_command(&args, "account_objects", &["Account not found"]);
     }
 
     #[test]
@@ -360,7 +369,7 @@ mod cli_tests {
             Some(5),
         );
 
-        assert_cli_command(&args, "Account channels:", &["Account not found"]);
+        assert_cli_command(&args, "channels", &["Account not found"]);
     }
 
     #[test]
@@ -373,7 +382,7 @@ mod cli_tests {
             None,
         );
 
-        assert_cli_command(&args, "Account currencies:", &["Account not found"]);
+        assert_cli_command(&args, "receive_currencies", &["Account not found"]);
     }
 
     #[test]
@@ -386,7 +395,7 @@ mod cli_tests {
             Some(5),
         );
 
-        assert_cli_command(&args, "Account trust lines:", &["Account not found"]);
+        assert_cli_command(&args, "\"lines\"", &["Account not found"]);
     }
 
     // ===== ADDRESS VALIDATION TESTS =====

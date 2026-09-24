@@ -14,13 +14,16 @@
 //! transaction blob: {blob}` — is the same defect as printing `{:#?}`: it makes
 //! the output unpipeable while looking like it works.
 //!
-//! [`response`] is the human channel for the query commands, and is where a
-//! `--json` flag belongs when those commands get one.
+//! [`response`] is the query commands' channel. Its output is **always JSON on
+//! stdout** — indented by default because a person is usually reading it,
+//! compact under `--json` because a script usually is not. Both parse, so `jq`
+//! works either way and the flag changes only how many newlines there are. The
+//! label that used to be prefixed onto stdout is a [`note`] on stderr.
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
 use serde::Serialize;
-use xrpl::asynch::clients::exceptions::XRPLClientException;
+use serde_json::Value;
 
 use crate::error::Error;
 
@@ -63,21 +66,30 @@ pub fn warn(message: impl core::fmt::Display) {
     }
 }
 
-/// Print a node response under a human-readable label.
+/// Print a node's `result` as JSON on stdout, and its label on stderr.
 ///
-/// The human channel, for the query commands. New commands that produce a
-/// machine artifact use [`artifact`] instead.
-pub fn response<T: core::fmt::Debug>(
-    result: Result<T, XRPLClientException>,
-    label: &str,
-) -> Result<(), Error> {
-    match result {
-        Ok(response) => {
-            println!("{label}: {response:#?}");
-            Ok(())
-        }
-        Err(error) => Err(Error::Client(error)),
+/// Takes a value rather than a `Result`: a printer that accepts an error
+/// inverts control — the caller hands its failure to the formatter instead of
+/// the formatter receiving something to format — and it meant every call site
+/// could only report an error the one way this function chose.
+///
+/// `compact` is `--json`. The default is indented, which is still one JSON
+/// document: the flag chooses a shape a script prefers, never a *format* a
+/// consumer has to sniff. That is the same reasoning that keeps `--json` off
+/// the `tx` pipeline stages entirely — there, one shape is the contract.
+pub fn response(value: &Value, label: &str, compact: bool) -> Result<(), Error> {
+    note(label);
+
+    let rendered = if compact {
+        serde_json::to_string(value)
+    } else {
+        serde_json::to_string_pretty(value)
     }
+    .map_err(Error::Json)?;
+
+    println!("{rendered}");
+
+    Ok(())
 }
 
 #[cfg(test)]

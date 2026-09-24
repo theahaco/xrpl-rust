@@ -44,6 +44,20 @@ impl Network {
     }
 }
 
+/// `--json`, flattened into every query command.
+///
+/// Not on the `tx` stages or `xrpl rpc`: those have exactly one output shape
+/// and no flag at all, because a configurable pipe format is how chaining
+/// breaks — every downstream consumer then has to sniff what it is reading.
+/// A query command has a person at the other end often enough to be worth the
+/// two shapes.
+#[derive(Debug, Clone, Copy, clap::Args)]
+pub struct OutputArgs {
+    /// Print one line of compact JSON instead of an indented document.
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// `--url` / `--network`, flattened into every command that reaches a node.
 ///
 /// `--url` wins when both are given; a command that names no endpoint falls
@@ -56,7 +70,7 @@ pub struct NetworkArgs {
     pub url: Option<String>,
 
     /// A named network to use instead of spelling out --url.
-    #[arg(long, value_enum)]
+    #[arg(long, value_enum, env = "XRPL_NETWORK")]
     pub network: Option<Network>,
 }
 

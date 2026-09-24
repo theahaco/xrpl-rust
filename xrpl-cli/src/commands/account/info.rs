@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::account_info::AccountInfo;
 
-use crate::commands::global::NetworkArgs;
+use crate::commands::global::{NetworkArgs, OutputArgs};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -13,6 +13,9 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: NetworkArgs,
+
+    #[command(flatten)]
+    pub output: OutputArgs,
 }
 
 impl Cmd {
@@ -20,6 +23,11 @@ impl Cmd {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
         let request = AccountInfo::builder(self.subject.address()?).build();
 
-        output::response(client.request(request.into()), "Account info")
+        let response = client.request(request.into()).map_err(Error::Client)?;
+        output::response(
+            &client::result_value(&response)?,
+            "Account info",
+            self.output.json,
+        )
     }
 }

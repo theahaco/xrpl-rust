@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::account_tx::AccountTx;
 
-use crate::commands::global::{NetworkArgs, DEFAULT_PAGINATION_LIMIT};
+use crate::commands::global::{NetworkArgs, OutputArgs, DEFAULT_PAGINATION_LIMIT};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -17,6 +17,9 @@ pub struct Cmd {
 
     #[command(flatten)]
     pub network: NetworkArgs,
+
+    #[command(flatten)]
+    pub output: OutputArgs,
 }
 
 impl Cmd {
@@ -29,9 +32,14 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         let client = client::json_rpc(&self.network.url_or_mainnet())?;
 
+        let response = client
+            .request(self.request(self.subject.address()?).into())
+            .map_err(Error::Client)?;
+
         output::response(
-            client.request(self.request(self.subject.address()?).into()),
+            &client::result_value(&response)?,
             "Account transactions",
+            self.output.json,
         )
     }
 }
@@ -52,6 +60,7 @@ mod tests {
                 url: None,
                 network: None,
             },
+            output: crate::commands::global::OutputArgs { json: false },
         };
 
         let request = cmd.request("rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh".into());

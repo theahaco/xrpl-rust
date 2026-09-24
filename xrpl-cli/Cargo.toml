@@ -19,11 +19,13 @@ path = "src/main.rs"
 # defaults today; name any narrowing here when a feature actually gets dropped.
 xrpl-rust = { version = "1.2.0", path = ".." }
 
-bip39 = { version = "2.1.0", features = ["rand_core", "zeroize"] }
 clap = { version = "4.5.39", features = ["derive", "env"] }
 # Passphrase encryption for key material: scrypt + ChaCha20-Poly1305 in a
 # reviewed, specified format, rather than a hand-rolled one.
 age = { version = "0.11", default-features = false, features = ["armor"] }
+# `server subscribe` reads raw WebSocket frames rather than the typed response
+# envelope: a stream event is not a response and does not parse as one.
+futures-util = { version = "0.3", default-features = false }
 hex = "0.4.3"
 # Choosing a `critical-section` implementation is the final binary's job, and
 # this is the final binary. `xrpl-rust` depends on `embassy-sync`
@@ -40,7 +42,6 @@ critical-section = { version = "1.2", features = ["std"] }
 # it pulls a platform backend — and on Linux, a D-Bus client — into a build that
 # does not need one: the encrypted-file backend works everywhere.
 keyring = { version = "4.2", optional = true }
-rand = "0.8.5"
 # Reads a secret from the controlling terminal with echo off, and restores the
 # terminal state on the way out. The alternative is a hand-rolled `termios`
 # whose layout differs between macOS and Linux.
