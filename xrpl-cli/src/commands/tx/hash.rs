@@ -47,6 +47,21 @@ fn transaction_id(transaction: &Value) -> Result<String, Error> {
         ));
     }
 
+    raw_transaction_id(transaction)
+}
+
+/// The transaction ID of anything, signed or not.
+///
+/// The ungated form, for the one case where an unsigned transaction genuinely
+/// has an ID: a `Batch` inner transaction. Inners carry `SigningPubKey: ""` and
+/// no `TxnSignature` by construction, and the outer `Batch` commits to exactly
+/// these IDs — so the ID is knowable, and computing it is how `tx batch wrap`
+/// builds the pre-image co-signers sign and how `tx submit` finds each inner's
+/// result afterwards.
+///
+/// Verified against a live node: the IDs this produces for a submitted batch's
+/// inners match the hashes those transactions land in the ledger under.
+pub fn raw_transaction_id(transaction: &Value) -> Result<String, Error> {
     let serialized = hex::decode(encode(transaction)?)?;
     let mut payload = Vec::with_capacity(serialized.len() + 4);
     payload.extend_from_slice(&TRANSACTION_ID_PREFIX);

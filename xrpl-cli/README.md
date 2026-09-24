@@ -144,6 +144,88 @@ Every signature made through a key record is appended to `signing.log` in the
 data directory — the key id, the address and the signing domain. Never the
 payload, never the secret.
 
+## Many transactions at once
+
+Three different things get called batching, and only one of them is `Batch`.
+
+**A stream** is the cheap one, and needs no amendment. Every stage already reads
+and writes a stream, so the only thing missing was the numbering:
+
+```bash
+for d in "${destinations[@]}"; do
+  xrpl tx new Payment --account issuer --destination "$d" --amount 25000000
+done \
+  | xrpl tx autofill --sequence-from-auto --network testnet \
+  | xrpl tx sign --sign-with issuer \
+  | xrpl tx submit --wait --network testnet
+```
+
+`--sequence-from-auto` makes **one** `account_info` call per distinct account and
+counts up locally. Without it each line costs its own round trip and they all
+come back with the same sequence, so only the first can apply. The counter lives
+for the invocation and is never persisted: no sequence is reserved anywhere, and
+two invocations racing collide as `tefPAST_SEQ`.
+
+`tx submit` reports every line and exits with the worst result it saw;
+`--stop-on-error` abandons the rest at the first failure instead.
+
+## Tickets, the answer available on mainnet today
+
+A ticket detaches a transaction from its account's sequence. That buys two
+things a scripted ceremony actually wants: N transactions prepared offline with
+no per-transaction round trip, and N slow multisig ceremonies running in
+parallel without serialising on the account.
+
+```bash
+xrpl tx new TicketCreate --account issuer --ticket-count 3 \
+  | xrpl tx autofill --network testnet | xrpl tx sign --sign-with issuer \
+  | xrpl tx submit --wait --network testnet
+
+xrpl tx new Payment --account issuer --destination rDEST… --amount 1 \
+  | xrpl tx autofill --tickets 165:167 --network testnet | …
+```
+
+The results can then be submitted in any order, by different people, at
+different times. `--tickets` also sets `Sequence` to 0, because the field is
+mandatory and zero is what says "a ticket authorizes this" — rippled answers
+`invalidTransaction: Field 'Sequence' is required but missing` otherwise.
+
+## `Batch`, for on-ledger atomicity
+
+XLS-56, and not yet on mainnet.
+
+```bash
+xrpl tx new Payment --account issuer --destination rDEST… --amount 1 --field Fee=200 \
+  | xrpl tx batch wrap --account issuer --flag tfAllOrNothing --sequence 42 --base-fee 200 \
+  | xrpl tx sign --sign-with issuer \
+  | xrpl tx submit --wait --network testnet
+```
+
+Two to eight inner transactions — rippled answers `Batch has too many inner
+transactions` at nine. `batch wrap` is offline: it strips signatures, sets
+`Fee: "0"`, `SigningPubKey: ""` and `tfInnerBatchTxn` on each inner, renumbers
+the batch account's own inners from the outer's sequence, and refuses a stream
+whose lines disagree on `NetworkID` — a batch is the easiest place to fold in a
+transaction built for another chain, and the outer signature vouches for every
+inner ID it commits to.
+
+`--batch-sign-with` adds `BatchSigners` entries over the `BCH\0` pre-image for
+the *other* accounts whose transactions are in the batch. That is a different
+array over different bytes from `--sign-with`'s `Signers`, which multisigns the
+outer transaction, so both can be present at once.
+
+**The outer transaction returns `tesSUCCESS` even when inner transactions
+fail.** So `tx submit` reports each one on stdout and exits 3 if any failed:
+
+```json
+{"index":0,"hash":"9959…","result":"tesSUCCESS"}
+{"index":1,"hash":"6243…","result":"tecNO_DST_INSUF_XRP"}
+```
+
+This is the one place `tx submit`'s stdout is not the transaction it was handed.
+Exit 3 on a `Batch` does **not** mean nothing happened, so it is not safe to
+resubmit.
+
 ## Layout
 
 One module per command, grouped by domain:

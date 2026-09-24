@@ -375,6 +375,154 @@ redistribute() {
   mark_done redistribute
 }
 
+# Whether this node will take a Batch at all.
+#
+# Not the `feature` RPC: a standalone node reports every amendment disabled,
+# including the eighty-five this config switches on, so its answer is noise.
+# The only authority is what the node does with a Batch, so hand it one that
+# cannot apply — the outer `Sequence` is 1, which genesis consumed on its first
+# payment and several stages ago here. A node without XLS-56 stops in preflight
+# with `temDISABLED`; a node with it gets as far as `tefPAST_SEQ`. Neither
+# applies anything, and neither burns a fee.
+#
+# Not `submit` either: `--wait` polls for a transaction the node refused before
+# it ever reached a ledger, and sixty seconds later reports that it gave up
+# rather than what the node actually said.
+node_takes_a_batch() {
+  local base_fee="$1" probe="$STATE/batch-probe.json" answer
+
+  # `--quiet` throughout: this one is expected to fail, and its commentary
+  # interleaved with the real batch's would read as the real batch failing.
+  { "$XRPL" tx new payment --quiet --account "$GENESIS_ADDRESS" --destination "$B1" --amount 1
+    "$XRPL" tx new payment --quiet --account "$GENESIS_ADDRESS" --destination "$B2" --amount 1
+  } | "$XRPL" tx autofill --quiet --url "$URL" --sequence-from-auto --no-last-ledger-sequence \
+    | "$XRPL" tx batch wrap --quiet --account genesis --flag tfAllOrNothing \
+        --sequence 1 --base-fee "$base_fee" \
+    | "$XRPL" tx sign --quiet --sign-with genesis \
+    > "$probe"
+
+  # The exit status is not the answer — the probe fails either way. A node that
+  # cannot be reached answers nothing at all, which is not `temDISABLED`, so the
+  # real batch below is what fails and says so. That is the right way round.
+  answer=$("$XRPL" tx submit --url "$URL" "$probe" 2>/dev/null) || true
+
+  [[ "$(jq -r '.engine_result // empty' <<<"$answer")" != "temDISABLED" ]]
+}
+
+# Everything the ceremony could not express one transaction at a time: a stream
+# numbered from a single lookup, sequence numbers set aside as tickets and spent
+# out of order, and two transactions that apply or fail together.
+batch() {
+  say "streams, tickets and XLS-56"
+
+  B1=$(make_identity batch-1)
+  B2=$(make_identity batch-2)
+  note "batch-1 $B1"
+  note "batch-2 $B2"
+
+  if done_with batch; then
+    note "already run"
+    return
+  fi
+
+  # `tx batch wrap` is offline and so cannot ask, and defaults to the protocol's
+  # 10 drops; this node charges 200. The outer `Fee` is a signing field, so a
+  # guess that is too low is `telINSUF_FEE_P` after the signature is spent.
+  local base_fee
+  base_fee=$("$XRPL" rpc fee --url "$URL" | jq -r .drops.base_fee)
+  note "reference fee $base_fee drops"
+
+  say "one stream funds two accounts from one account_info"
+  # Without `--sequence-from-auto` both lines come back carrying the *same*
+  # `Sequence` — one `account_info` each, both answered before either applied —
+  # so the second is `tefPAST_SEQ` and only one account is funded.
+  { "$XRPL" tx new payment --account "$GENESIS_ADDRESS" --destination "$B1" --amount 500000000
+    "$XRPL" tx new payment --account "$GENESIS_ADDRESS" --destination "$B2" --amount 500000000
+  } | "$XRPL" tx autofill --url "$URL" --sequence-from-auto \
+    | "$XRPL" tx sign --sign-with genesis \
+    | submit \
+    | jq -r '"   sequence \(.Sequence) funded \(.Destination): \(.meta.TransactionResult)"' >&2
+  close_ledger
+
+  say "governance: three tickets, 2-of-3 multisigned"
+  # A ticket is a sequence number set aside now to be spent later, by anyone
+  # holding the quorum, in any order. Setting them aside is an ordinary
+  # transaction, so it needs the quorum like everything else governance has
+  # done since its master key went away.
+  multisign_serial "$STATE/tickets.json" ticket-create \
+    --account "$GOVERNANCE" \
+    --ticket-count 3
+
+  submit_collected "$STATE/tickets.json" | jq -r '"   result: " + .meta.TransactionResult' >&2
+  close_ledger
+
+  # Read back from the ledger rather than derived from the TicketCreate's own
+  # sequence. The node is the authority on which numbers it set aside, and a
+  # demo that computed them would be asserting rippled's arithmetic instead of
+  # observing it.
+  local tickets first second
+  tickets=$("$XRPL" rpc account_objects \
+      --param account="$GOVERNANCE" --param type=ticket --param ledger_index=validated --url "$URL" \
+    | jq -r '[.account_objects[].TicketSequence] | sort | @tsv')
+  read -r first second _ <<<"$tickets"
+  note "tickets $(tr '\t' ' ' <<<"$tickets")"
+
+  say "two ticketed payments, spent in reverse order"
+  # `--tickets` hands them out in stream order, one per line, and sets
+  # `Sequence` to 0 on each because a ticket is what authorizes them. Reversing
+  # the stream before submitting is the whole point: tickets carry no ordering,
+  # so the payment holding the *later* one lands first. Consecutive sequences
+  # cannot do that, and the third ticket stays unspent, which they also cannot.
+  { "$XRPL" tx new payment --account "$GOVERNANCE" --destination "$RECIPIENT" --amount "100/$MPT"
+    "$XRPL" tx new payment --account "$GOVERNANCE" --destination "$RECIPIENT" --amount "200/$MPT"
+  } | "$XRPL" tx autofill --url "$URL" --tickets "$first:$second" --signers 2 --no-last-ledger-sequence \
+    | "$XRPL" tx sign --multisign --sign-with signer-1 \
+    | "$XRPL" tx sign --multisign --sign-with signer-2 \
+    > "$STATE/ticketed.json"
+
+  jq -sc 'reverse[]' "$STATE/ticketed.json" \
+    | submit \
+    | jq -r '"   ticket \(.TicketSequence) spent: \(.meta.TransactionResult)"' >&2
+  close_ledger
+
+  say "batch: an authorization and a payment in one atomic step"
+
+  if ! node_takes_a_batch "$base_fee"; then
+    note "this node answers temDISABLED to a Batch: it is running without XLS-56"
+    note "the tickets above need no amendment, and are the answer mainnet has today"
+    mark_done batch
+    return
+  fi
+
+  local sequence
+  sequence=$("$XRPL" rpc account_info --param account="$B1" --param ledger_index=validated --url "$URL" \
+    | jq -r .account_data.Sequence)
+
+  # Both inners belong to batch-1, so the outer signature is the only one the
+  # batch needs; an inner belonging to another account would want that
+  # account's entry in `BatchSigners` as well. `tfAllOrNothing` is the part
+  # that matters here — the authorization and the payment both land or neither
+  # does, which two separately submitted transactions cannot promise however
+  # closely they are submitted together.
+  #
+  # The outer consumes batch-1's sequence, so `wrap --sequence` renumbers the
+  # inners from it; the sequences autofill handed out are the ones that would
+  # have collided. And no `LastLedgerSequence` on either: the outer commits to
+  # the exact bytes of each inner, so an expiry could not be refreshed
+  # afterwards without invalidating the ID the outer vouches for.
+  { "$XRPL" tx new mptoken-authorize --account "$B1" --mptoken-issuance-id "$MPT"
+    "$XRPL" tx new payment --account "$B1" --destination "$B2" --amount 1000
+  } | "$XRPL" tx autofill --url "$URL" --sequence-from-auto --no-last-ledger-sequence \
+    | "$XRPL" tx batch wrap --account batch-1 --flag tfAllOrNothing \
+        --sequence "$sequence" --base-fee "$base_fee" \
+    | "$XRPL" tx sign --sign-with batch-1 \
+    | submit \
+    | jq -r 'if .index != null then "   inner \(.index): \(.result)" else "   batch: \(.meta.TransactionResult)" end' >&2
+  close_ledger
+
+  mark_done batch
+}
+
 status() {
   say "status"
 
@@ -478,13 +626,15 @@ main() {
     setup:governance) setup_signers; setup_issuer; setup_governance ;;
     mint)             setup_signers; setup_issuer; setup_governance; mint ;;
     redistribute)     setup_signers; setup_issuer; setup_governance; mint; redistribute ;;
-    status)           setup_signers; setup_issuer; setup_governance; mint; redistribute; status ;;
+    batch)            setup_signers; setup_issuer; setup_governance; mint; redistribute; batch ;;
+    status)           setup_signers; setup_issuer; setup_governance; mint; redistribute; batch; status ;;
     all)
       setup_signers
       setup_issuer
       setup_governance
       mint
       redistribute
+      batch
       status
       check_exit_codes
       check_journal

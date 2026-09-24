@@ -11,9 +11,17 @@
 //! ```
 //!
 //! Which stages touch the network is a property of the stage, not a flag:
-//! `new`, `edit`, `sign`, `hash`, `digest`, `blob`, `decode` and
+//! `new`, `edit`, `batch wrap`, `sign`, `hash`, `digest`, `blob`, `decode` and
 //! `mpt-issuance-id` are offline and need no URL at all. `autofill` and `submit` are the only two that
 //! reach a node.
+//!
+//! # A stream is the general case
+//!
+//! Every stage reads and writes `Vec<Value>`; one transaction is the degenerate
+//! case. `tx autofill --sequence-from-auto` numbers a stream consecutively from
+//! one `account_info` call per distinct account, and `tx sign` unlocks its key
+//! once and signs every line with it — a stream must never mean a passphrase
+//! prompt per transaction.
 //!
 //! The pipe format is not configurable. There is no `--output`, no `--format`
 //! and no `--json`, because a stage that can be told what to emit is a stage
@@ -21,6 +29,7 @@
 
 pub mod args;
 pub mod autofill;
+pub mod batch;
 pub mod blob;
 pub mod decode;
 pub mod digest;
@@ -46,6 +55,9 @@ pub enum Cmd {
     New(new::Cmd),
     /// Fill in Fee, Sequence, LastLedgerSequence and NetworkID
     Autofill(autofill::Cmd),
+    /// Fold a stream into one XLS-56 Batch (OFFLINE)
+    #[command(subcommand)]
+    Batch(batch::Cmd),
     /// Open a transaction in $EDITOR (OFFLINE)
     Edit(edit::Cmd),
     /// Sign a transaction (OFFLINE)
@@ -73,6 +85,7 @@ impl Cmd {
         match self {
             Cmd::New(cmd) => cmd.run(),
             Cmd::Autofill(cmd) => cmd.run(),
+            Cmd::Batch(cmd) => cmd.run(),
             Cmd::Edit(cmd) => cmd.run(),
             Cmd::Sign(cmd) => cmd.run(),
             Cmd::Merge(cmd) => cmd.run(),

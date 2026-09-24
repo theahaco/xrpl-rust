@@ -45,6 +45,19 @@ jobs:
             exit 1
           }
 
+      # Same argument as the surface snapshot above: a generated reference is
+      # invisible to review, so a flag that stopped being hidden — `--seed`, the
+      # whole `wallet` group — would reappear in the published docs with nothing
+      # in the diff to say so.
+      - name: Check the CLI reference is current
+        run: |
+          cargo run -q -p xrpl-cli --bin cli-docs > /tmp/cli.md
+          diff -u xrpl-cli/CLI.md /tmp/cli.md || {
+            echo "::error::xrpl-cli/CLI.md is stale. Regenerate it with:"
+            echo "::error::  cargo run -p xrpl-cli --bin cli-docs > xrpl-cli/CLI.md"
+            exit 1
+          }
+
       - name: Clippy
         run: cargo clippy --workspace --all-features -- -D warnings
 

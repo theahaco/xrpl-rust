@@ -47,9 +47,34 @@ pub fn is_quiet() -> bool {
 /// valid NDJSON and each line survives a `while read` loop intact.
 pub fn artifact<T: Serialize>(value: &T) -> Result<(), Error> {
     let line = serde_json::to_string(value)?;
-    println!("{line}");
+    write_line(&line)
+}
 
-    Ok(())
+/// Write one line to stdout, treating a closed pipe as a normal ending.
+///
+/// `println!` panics when the write fails, so `xrpl tx new … | head -1` ended
+/// in a Rust panic message rather than quietly — `head` closes the pipe as soon
+/// as it has what it asked for, which is the reader doing its job, not an error.
+/// Rust ignores `SIGPIPE`, so the failure arrives here as an ordinary write
+/// error and this is where it belongs.
+fn write_line(line: &str) -> Result<(), Error> {
+    use std::io::Write;
+
+    match writeln!(std::io::stdout(), "{line}") {
+        Ok(()) => Ok(()),
+        // Nothing is listening any more, and everything asked for was
+        // delivered. Exiting is the whole remaining task.
+        Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => std::process::exit(0),
+        Err(error) => Err(Error::Io(error)),
+    }
+}
+
+/// Write one already-rendered line to stdout.
+///
+/// For `server subscribe`, which passes the node's own frame through rather
+/// than re-serializing it.
+pub fn raw_line(line: &str) -> Result<(), Error> {
+    write_line(line)
 }
 
 /// Write a human-facing note to stderr. Silenced by `-q`.
@@ -87,9 +112,7 @@ pub fn response(value: &Value, label: &str, compact: bool) -> Result<(), Error> 
     }
     .map_err(Error::Json)?;
 
-    println!("{rendered}");
-
-    Ok(())
+    write_line(&rendered)
 }
 
 #[cfg(test)]
