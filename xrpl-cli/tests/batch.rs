@@ -207,6 +207,11 @@ fn test_ticketed_transactions_validate_out_of_order() {
 #[test]
 fn test_a_batch_reports_each_inner_and_exits_three_when_one_fails() {
     let env = TestEnv::new();
+    // Both guards, because they answer different questions: whether a node is
+    // there at all, and whether the one that is there carries XLS-56. The
+    // secure-store CI job runs this binary with no node running, and without
+    // the first guard this test failed there rather than skipping.
+    require_standalone!(&env);
     let _guard = blockchain_lock();
 
     let genesis = seed_file(&env);
