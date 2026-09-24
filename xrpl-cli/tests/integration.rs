@@ -96,12 +96,6 @@ mod cli_tests {
         }
     }
 
-    /// Helper for wallet-related command tests
-    fn assert_wallet_output(output: &str) {
-        assert!(output.contains("classic_address"));
-        assert!(output.contains("public_key"));
-    }
-
     /// Helper to create address-related command arguments
     fn address_command_args<'a>(
         command_group: &'a str,

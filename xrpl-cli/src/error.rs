@@ -33,6 +33,16 @@ pub enum Error {
     Core(#[from] xrpl::core::exceptions::XRPLCoreException),
     #[error("Signer error: {0}")]
     Signer(#[from] SignerError),
+    /// The node answered, and its answer was an error.
+    ///
+    /// Distinct from [`Error::Client`], which is a transport failure, and from
+    /// [`Error::Helper`], which is a transaction the ledger rejected. This is a
+    /// well-formed reply saying the request could not be served — `lgrNotFound`,
+    /// `actNotFound` — and it shares exit 2 with the transport failures because
+    /// a caller's remedy is the same: ask differently, or ask elsewhere.
+    #[error("the node answered with {code}: {message}")]
+    Node { code: String, message: String },
+
     #[error("{0}")]
     Other(String),
 }
@@ -95,7 +105,7 @@ impl Error {
     pub fn exit_code(&self) -> ExitCode {
         ExitCode::from(match self {
             Error::UrlParse(_) | Error::Json(_) | Error::Other(_) => exit::USAGE,
-            Error::Client(_) => exit::NETWORK,
+            Error::Client(_) | Error::Node { .. } => exit::NETWORK,
             Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) | Error::Toml(_) => {
                 exit::USAGE
             }

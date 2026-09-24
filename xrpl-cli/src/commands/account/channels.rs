@@ -1,7 +1,7 @@
 use xrpl::clients::XRPLSyncClient;
 use xrpl::models::requests::account_channels::AccountChannels;
 
-use crate::commands::global::{NetworkArgs, OutputArgs, DEFAULT_PAGINATION_LIMIT};
+use crate::commands::global::{LedgerArgs, NetworkArgs, OutputArgs, DEFAULT_PAGINATION_LIMIT};
 use crate::error::Error;
 use crate::{client, output};
 
@@ -20,6 +20,9 @@ pub struct Cmd {
     pub limit: u16,
 
     #[command(flatten)]
+    pub ledger: LedgerArgs,
+
+    #[command(flatten)]
     pub network: NetworkArgs,
 
     #[command(flatten)]
@@ -32,11 +35,13 @@ impl Cmd {
         let request = AccountChannels::builder(self.subject.address()?)
             .maybe_destination_account(self.destination_account.as_deref())
             .limit(self.limit)
+            .maybe_ledger_hash(self.ledger.hash())
+            .maybe_ledger_index(self.ledger.index())
             .build();
 
         let response = client.request(request.into()).map_err(Error::Client)?;
         output::response(
-            &client::result_value(&response)?,
+            &client::ok_result(&response)?,
             "Account channels",
             self.output.json,
         )

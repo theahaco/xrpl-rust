@@ -22,7 +22,7 @@ impl Cmd {
 
         let response = client.request(request.into()).map_err(Error::Client)?;
         output::response(
-            &client::result_value(&response)?,
+            &client::ok_result(&response)?,
             "Server info",
             self.output.json,
         )

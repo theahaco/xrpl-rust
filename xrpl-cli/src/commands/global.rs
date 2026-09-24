@@ -58,6 +58,46 @@ pub struct OutputArgs {
     pub json: bool,
 }
 
+/// `--ledger-index` / `--ledger-hash`, flattened into every query that can name
+/// a ledger.
+///
+/// Every one of these requests supports them and none of them exposed one, so
+/// a query could only ever read whatever the node felt was current. That is
+/// wrong for the reconciliation `account doctor` does and wrong for anyone
+/// reproducing a result: "the balance at ledger 96,000,000" was unaskable.
+#[derive(Debug, Clone, Default, clap::Args)]
+pub struct LedgerArgs {
+    /// The ledger to read: a sequence number, or validated|closed|current.
+    #[arg(long, value_name = "INDEX_OR_SHORTCUT")]
+    pub ledger_index: Option<String>,
+
+    /// The ledger to read, by its hash.
+    #[arg(long, value_name = "HASH", conflicts_with = "ledger_index")]
+    pub ledger_hash: Option<String>,
+}
+
+impl LedgerArgs {
+    /// The ledger index in the shape the request models want.
+    ///
+    /// An integer when it parses as one, the string otherwise — rippled accepts
+    /// both, and `validated` is the one most callers actually want.
+    pub fn index(&self) -> Option<xrpl::models::requests::LedgerIndex<'_>> {
+        use xrpl::models::requests::LedgerIndex;
+
+        self.ledger_index
+            .as_deref()
+            .map(|value| match value.parse() {
+                Ok(number) => LedgerIndex::Int(number),
+                Err(_) => LedgerIndex::Str(value.into()),
+            })
+    }
+
+    /// The ledger hash, if one was given.
+    pub fn hash(&self) -> Option<&str> {
+        self.ledger_hash.as_deref()
+    }
+}
+
 /// `--url` / `--network`, flattened into every command that reaches a node.
 ///
 /// `--url` wins when both are given; a command that names no endpoint falls

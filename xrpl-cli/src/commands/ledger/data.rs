@@ -46,7 +46,7 @@ impl Cmd {
             .map_err(Error::Client)?;
 
         output::response(
-            &client::result_value(&response)?,
+            &client::ok_result(&response)?,
             "Ledger data",
             self.output.json,
         )
