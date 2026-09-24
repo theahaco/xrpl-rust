@@ -24,18 +24,22 @@ pub mod autofill;
 pub mod blob;
 pub mod decode;
 pub mod digest;
+pub mod fields;
 pub mod hash;
 pub mod io;
 pub mod mpt_issuance_id;
 pub mod new;
 pub mod sign;
 pub mod submit;
+pub mod txdef;
+pub mod value;
 
 use crate::error::Error;
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Cmd {
     /// Build an unsigned transaction (OFFLINE)
+    #[command(subcommand)]
     New(new::Cmd),
     /// Fill in Fee, Sequence, LastLedgerSequence and NetworkID
     Autofill(autofill::Cmd),
@@ -53,6 +57,8 @@ pub enum Cmd {
     Decode(decode::Cmd),
     /// Derive an MPT issuance ID (OFFLINE)
     MptIssuanceId(mpt_issuance_id::Cmd),
+    /// List the fields and flags a transaction type accepts (OFFLINE)
+    Fields(fields::Cmd),
 }
 
 impl Cmd {
@@ -67,6 +73,7 @@ impl Cmd {
             Cmd::Blob(cmd) => cmd.run(),
             Cmd::Decode(cmd) => cmd.run(),
             Cmd::MptIssuanceId(cmd) => cmd.run(),
+            Cmd::Fields(cmd) => cmd.run(),
         }
     }
 }

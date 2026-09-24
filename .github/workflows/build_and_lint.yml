@@ -34,6 +34,17 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      # A generated command surface is invisible to review otherwise: nothing in
+      # a pull request shows that a field changed type or stopped being required.
+      - name: Check the tx surface snapshot is current
+        run: |
+          cargo run -q -p xrpl-cli --bin tx-surface > /tmp/tx-surface.md
+          diff -u xrpl-cli/TX_SURFACE.md /tmp/tx-surface.md || {
+            echo "::error::xrpl-cli/TX_SURFACE.md is stale. Regenerate it with:"
+            echo "::error::  cargo run -p xrpl-cli --bin tx-surface > xrpl-cli/TX_SURFACE.md"
+            exit 1
+          }
+
       - name: Clippy
         run: cargo clippy --workspace --all-features -- -D warnings
 
