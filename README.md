@@ -48,15 +48,13 @@ this library can be used on devices without the ability to use a
 - [Documentation](#documentation)
 - [Quickstart](#quickstart)
 - [Feature Flags](#feature-flags)
-- [no_std Support](#no_std)
+- [`no_std` Support](#no_std)
 - [Command Line Interface](#command-line-interface)
-  - [Installation](#installation-1)
-  - [Basic Usage](#basic-usage)
-  - [Wallet Commands](#wallet-commands)
-  - [Account Commands](#account-commands)
-  - [Transaction Commands](#transaction-commands)
-  - [Server and Ledger Commands](#server-and-ledger-commands)
-- [Examples](#examples)
+  - [The tx pipeline](#the-tx-pipeline)
+  - [Accounts, keys, and signers](#accounts-keys-and-signers)
+  - [Command groups](#command-groups)
+  - [A worked example](#a-worked-example)
+- [Library Usage](#library-usage)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -141,314 +139,80 @@ features = ["core", "models", "wallet", "utils", "websocket", "json-rpc", "helpe
 
 # Command Line Interface
 
-The `xrpl-cli` crate provides a CLI tool for interacting with the XRP Ledger directly from your terminal, built on this library. This makes it easy to perform common XRPL operations without writing code. It is a separate crate, so depending on `xrpl-rust` does not pull `clap` into your build.
+`xrpl-cli` is a separate crate, so depending on `xrpl-rust` does not pull `clap` into your build.
 
-## Installation
-
-```bash
-cargo install xrpl-cli
-```
-
-From a checkout of this repository:
+**[`xrpl-cli/README.md`](xrpl-cli/README.md) is the reference.** What follows is
+an orientation; the command surface changes, and two copies of it would drift.
 
 ```bash
 cargo install --path xrpl-cli
-```
-
-## Choosing a network
-
-Every command that talks to a node accepts `--url` or `--network`:
-
-```bash
-xrpl account info --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh --network mainnet
-xrpl server info --network local    # http://127.0.0.1:5005, a standalone node
-xrpl server subscribe --network local   # ws://127.0.0.1:6006, the WebSocket port
-```
-
-`--network` accepts `mainnet`, `testnet`, `devnet` and `local`. `--url` wins when both are given, and commands keep their previous defaults when neither is: mainnet for queries, testnet for `wallet faucet`.
-
-## Basic Usage
-
-After installation, you can use the CLI with the `xrpl` command:
-
-```bash
-xrpl [COMMAND] [OPTIONS]
-```
-
-For help with available commands:
-
-```bash
 xrpl --help
 ```
 
-For help with a specific command:
+## The `tx` pipeline
+
+Every stage reads one machine artifact on stdin and writes one on stdout, so
+they compose. Human-readable output goes to stderr and is silenced by `-q`.
 
 ```bash
-xrpl [COMMAND] --help
+xrpl tx new Payment \
+      --account rISSUER… --destination rDEST… --amount 10000000 \
+  | xrpl tx autofill --network testnet \
+  | xrpl tx sign --sign-with issuer \
+  | xrpl tx submit --wait --network testnet
 ```
 
-## Available Commands
+`xrpl tx new` covers every transaction type the bundled definitions carry, with
+a flag per field. `autofill` and `submit` are the only stages that reach a node,
+and neither has a default network — a pipeline stage that picks one on your
+behalf can pick mainnet.
 
-The CLI offers commands in several categories:
+## Accounts, keys, and signers
 
-### Wallet Commands
-
-| Command  | Subcommand  | Description                                     |
-| -------- | ----------- | ----------------------------------------------- |
-| `wallet` | `generate`  | Generate a new XRPL wallet                      |
-| `wallet` | `from-seed` | Create a wallet from an existing seed           |
-| `wallet` | `faucet`    | Generate a wallet funded by the testnet faucet  |
-| `wallet` | `validate`  | Validate an XRPL address (classic or X-address) |
-
-### Account Commands
-
-| Command   | Subcommand   | Description                                     |
-| --------- | ------------ | ----------------------------------------------- |
-| `account` | `info`       | Get basic account information                   |
-| `account` | `tx`         | Get account transactions                        |
-| `account` | `objects`    | Get account objects (trust lines, offers, etc.) |
-| `account` | `channels`   | Get account payment channels                    |
-| `account` | `currencies` | Get currencies an account can send/receive      |
-| `account` | `lines`      | Get account trust lines                         |
-
-### Transaction Commands
-
-| Command       | Subcommand | Description                                |
-| ------------- | ---------- | ------------------------------------------ |
-| `transaction` | `sign`     | Sign a transaction using your seed         |
-| `transaction` | `submit`   | Submit a signed transaction to the network |
-| `transaction` | `get`      | Get transaction details by hash            |
-| `transaction` | `nft-mint` | Create and sign an NFT mint transaction    |
-| `transaction` | `nft-burn` | Create and sign an NFT burn transaction    |
-| `transaction` | `payment`  | Create and sign a payment transaction      |
-
-### Server and Ledger Commands
-
-| Command  | Subcommand  | Description                              |
-| -------- | ----------- | ---------------------------------------- |
-| `server` | `fee`       | Get the current network fee              |
-| `server` | `info`      | Get information about a rippled server   |
-| `ledger` | `data`      | Get data about a specific ledger         |
-| `server` | `subscribe` | Subscribe to ledger events via WebSocket |
-
-### 2. **Advanced Query Commands**
-
-| Command       | Subcommand | Description                          |
-| ------------- | ---------- | ------------------------------------ |
-| `ledger`      | `entry`    | Get a specific ledger entry by index |
-| `transaction` | `get`      | Get transaction details by hash      |
-
-#### ledger entry
-
-Get a specific ledger entry by its index.
+Three separate things, on purpose. An **account** is an address and what is true
+of it offline; a **key** is a public key and a pointer to where its secret
+lives; a **signer** is resolved at runtime and never persisted.
 
 ```bash
-xrpl ledger entry --index 1A2B3C... --url https://xrplcluster.com/
+xrpl key generate issuer --show-secret      # the 16-byte seed IS the backup
+xrpl account add issuer --address rISSUER… --network-id 0 \
+      --key issuer --default-signer issuer
+xrpl account doctor issuer --ledger         # local record vs. the ledger
 ```
 
-### 3. **Account NFTs Command**
+Seeds are encrypted at rest under a passphrase (age, scrypt) and the record
+points at the blob rather than holding it. Nothing this CLI writes contains key
+material in the clear. The honest claim is **encrypted at rest, plaintext in
+process memory at signing time** — see `xrpl-cli/src/store/secret.rs` for what
+that does and does not defend against.
 
-#### account nfts
-
-Get NFTs owned by an account.
+For a signature without enrolling anything, `--seed-file` reads a file you own
+and the CLI never writes one:
 
 ```bash
-xrpl account nfts --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh --url https://xrplcluster.com/
+xrpl tx sign --seed-file <(op read op://vault/issuer/seed)
 ```
 
-## Command Details
+## Command groups
 
-### Wallet Operations
+| Group | What it does |
+| --- | --- |
+| `tx` | Build, edit, autofill, sign, multisign, merge, submit, hash, decode |
+| `account` | Local records (`add`, `ls`, `show`, `rm`, `use`, `doctor`) **and** ledger queries (`info`, `tx`/`history`, `lines`, `objects`, `channels`, `currencies`, `nfts`) |
+| `key` | `add`, `generate`, `export`, `ls`, `show`, `rm` |
+| `server` / `ledger` | `fee`, `info`, `subscribe`, `data` |
+| `rpc` | Any rippled method, by name |
 
-#### wallet generate
+`account show` reads one local file; `account info` calls the node. Each verb's
+help says which side it is on.
 
-Generate a new XRPL wallet (keypair).
+## A worked example
 
-```bash
-# Generate a new wallet
-xrpl wallet generate
+[`xrpl-cli/demo/token-ceremony.sh`](xrpl-cli/demo/token-ceremony.sh) issues an
+MPT from an account whose master key is disabled and which is controlled 2-of-3,
+collecting the quorum both serially and in parallel — using only `xrpl`
+commands. It is also the CI acceptance gate, so it cannot drift.
 
-# Generate and save wallet (functionality not yet implemented)
-xrpl wallet generate --save
-```
-
-#### wallet from-seed
-
-Derive a wallet from an existing seed.
-
-```bash
-xrpl wallet from-seed --seed s123... [--sequence 0]
-```
-
-Parameters:
-
-- `--seed`: The seed to use (required)
-- `--sequence`: The key sequence number (default: 0)
-
-#### wallet faucet
-
-Generate a new wallet and fund it using the testnet faucet.
-
-```bash
-xrpl wallet faucet [--url https://s.altnet.rippletest.net:51234]
-```
-
-Parameters:
-
-- `--url`: The testnet URL (default: https://s.altnet.rippletest.net:51234)
-
-#### wallet validate
-
-Validate an XRPL address (works with both classic and X-addresses).
-
-```bash
-xrpl wallet validate --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh
-```
-
-Parameters:
-
-- `--address`: The address to validate (required)
-
-#### wallet generate --mnemonic
-
-Generate a new wallet with a BIP39 mnemonic phrase.
-
-```bash
-# Generate with 12 words (default)
-xrpl wallet generate --mnemonic
-
-# Generate with 24 words
-xrpl wallet generate --mnemonic --words 24
-```
-
-### Account Information
-
-#### account info
-
-Get basic account information.
-
-```bash
-xrpl account info --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account tx
-
-Get account transactions.
-
-```bash
-xrpl account tx --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--limit 10] [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--limit`: Maximum number of transactions to return (default: 10)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account objects
-
-Get account objects (trust lines, offers, etc.)
-
-```bash
-xrpl account objects --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--type-filter offer] [--limit 10] [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--type-filter`: Type of objects to return (e.g., "offer", "state")
-- `--limit`: Maximum number of objects to return (default: 10)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account channels
-
-Get information about an account's payment channels.
-
-```bash
-xrpl account channels --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--destination-account rDestination...] [--limit 10] [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--destination-account`: Filter channels by destination account
-- `--limit`: Maximum number of channels to return (default: 10)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account currencies
-
-Get a list of currencies that an account can send or receive.
-
-```bash
-xrpl account currencies --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account lines
-
-Get information about an account's trust lines.
-
-```bash
-xrpl account lines --address rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh [--peer rPeer...] [--limit 10] [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--address`: The account address (required)
-- `--peer`: Filter trust lines by peer account
-- `--limit`: Maximum number of trust lines to return (default: 10)
-- `--url`: The XRPL node URL (default: https://xrplcluster.com/)
-
-#### account set-flag
-
-Set an account flag.
-
-```bash
-xrpl account set-flag --seed s... --flag asfRequireAuth [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--seed`, `-s` (required): The seed to use for signing
-- `--flag`, `-f` (required): The flag to set (e.g., asfRequireAuth, asfDisableMaster, etc.)
-- `--url`, `-u` (optional, default: https://xrplcluster.com/): The XRPL node URL
-
-**Example Output:**
-
-```text
-Signed transaction blob: ...
-To submit, use: xrpl transaction submit --tx-blob ... --url ...
-```
-
-#### account clear-flag
-
-Clear an account flag.
-
-```bash
-xrpl account clear-flag --seed s... --flag asfRequireAuth [--url https://xrplcluster.com/]
-```
-
-Parameters:
-
-- `--seed`, `-s` (required): The seed to use for signing
-- `--flag`, `-f` (required): The flag to clear (e.g., asfRequireAuth, asfDisableMaster, etc.)
-- `--url`, `-u` (optional, default: https://xrplcluster.com/): The XRPL node URL
-
-**Example Output:**
-
-```text
-Signed transaction blob: ...
-To submit, use: xrpl transaction submit --tx-blob ... --url ...
-```
 
 # Library Usage
 
@@ -852,6 +616,12 @@ cargo test
 
 # Run CLI tests
 cargo test -p xrpl-cli
+
+# Run the CLI's integration tests and acceptance gate against a standalone node
+docker run -d -p 5005:5005 -p 6006:6006 \
+  -v "$PWD/.ci-config/:/etc/xrpld/" --name xrpld rippleci/xrpld:develop --standalone
+cargo test -p xrpl-cli --features integration -- --test-threads=1
+XRPL_DATA_DIR=$(mktemp -d) XRPL_NETWORK=local ./xrpl-cli/demo/token-ceremony.sh all
 
 # Build with all features
 cargo build --all-features

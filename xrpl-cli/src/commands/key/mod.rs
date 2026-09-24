@@ -3,12 +3,13 @@
 //! A key record is a public key, its curve, and a pointer to where the secret
 //! lives. It never contains the secret itself.
 //!
-//! Only `watch-only` keys can be created here: a key that can be recognized but
-//! not used. The encrypted-file and credential-store backends that hold real
-//! secrets arrive next, and they slot in as another `source` rather than as a
-//! change to any of these verbs.
+//! Where a secret lives is a `source` on the record — `encrypted-file`,
+//! `secure-store`, or `watch-only` for a key that can be recognized but never
+//! used. Adding a backend is adding a `source`, not changing any of these
+//! verbs; `xrpl key backends` lists the ones this binary was built with.
 
 pub mod add;
+pub mod backends;
 pub mod enrol;
 pub mod export;
 pub mod generate;
@@ -32,6 +33,8 @@ pub enum Cmd {
     Show(show::Cmd),
     /// Remove a key record (local record, no network)
     Rm(rm::Cmd),
+    /// List the signing backends this binary was built with (no network)
+    Backends(backends::Cmd),
 }
 
 impl Cmd {
@@ -43,6 +46,7 @@ impl Cmd {
             Cmd::Ls(cmd) => cmd.run(),
             Cmd::Show(cmd) => cmd.run(),
             Cmd::Rm(cmd) => cmd.run(),
+            Cmd::Backends(cmd) => cmd.run(),
         }
     }
 }

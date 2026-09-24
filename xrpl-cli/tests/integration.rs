@@ -51,13 +51,10 @@ mod cli_tests {
         if output.status.success() {
             Ok(String::from_utf8_lossy(&output.stdout).to_string())
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "Command failed: {}",
-                    String::from_utf8_lossy(&output.stderr)
-                ),
-            ))
+            Err(io::Error::other(format!(
+                "Command failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            )))
         }
     }
 
