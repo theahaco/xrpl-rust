@@ -26,8 +26,23 @@ pub enum Backend {
     SecureStore,
 }
 
+/// What to do when enrolling.
+#[derive(Debug, Clone, Copy)]
+pub struct Enrolment {
+    /// Where the encrypted blob goes.
+    pub backend: Backend,
+    /// Show the derived address and ask before writing anything.
+    ///
+    /// Only when there is a terminal. A seed derives to exactly one address
+    /// and nothing warns you if it is not the one you meant — a mistyped path
+    /// or the wrong file out of a vault enrols silently and fails much later,
+    /// as a signature from an account nobody expected.
+    pub confirm: bool,
+}
+
 /// Encrypt a seed and write both halves of the record.
-pub fn enrol(store: &Store, id: &str, seed: &str, backend: Backend) -> Result<KeyRecord, Error> {
+pub fn enrol(store: &Store, id: &str, seed: &str, how: Enrolment) -> Result<KeyRecord, Error> {
+    let backend = how.backend;
     let wallet = Wallet::new(seed, 0)?;
 
     // Before the passphrase prompt, not after: asking someone to type a
@@ -35,6 +50,19 @@ pub fn enrol(store: &Store, id: &str, seed: &str, backend: Backend) -> Result<Ke
     // one part of this that needs a human.
     if backend == Backend::SecureStore {
         keychain::probe()?;
+    }
+
+    if how.confirm && tty::is_interactive() {
+        crate::output::note(format!(
+            "{id} derives to {} ({}, {})",
+            wallet.classic_address,
+            format!("{:?}", wallet.algorithm()).to_lowercase(),
+            wallet.public_key
+        ));
+
+        if !tty::confirm(&format!("Enrol {id}?"))? {
+            return Err(crate::error::SignerError::Declined(format!("not enrolling {id}")).into());
+        }
     }
 
     let passphrase = passphrase_for_new_key(id)?;

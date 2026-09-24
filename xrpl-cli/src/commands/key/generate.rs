@@ -55,12 +55,18 @@ impl Cmd {
         };
 
         let mut seed = xrpl::core::keypairs::generate_seed(None, algorithm)?;
-        let backend = if self.secure_store {
-            super::enrol::Backend::SecureStore
-        } else {
-            super::enrol::Backend::EncryptedFile
+        // No confirmation here: the key was made a line ago, so there is
+        // nothing to check it against. `key add` confirms because the seed came
+        // from somewhere else and may not be the one you meant.
+        let how = super::enrol::Enrolment {
+            backend: if self.secure_store {
+                super::enrol::Backend::SecureStore
+            } else {
+                super::enrol::Backend::EncryptedFile
+            },
+            confirm: false,
         };
-        let record = super::enrol::enrol(&store, &self.id, &seed, backend)?;
+        let record = super::enrol::enrol(&store, &self.id, &seed, how)?;
 
         // The 16-byte family seed *is* the backup: this crate has no mnemonic
         // convention, so there is nothing else human-transcribable. Show it

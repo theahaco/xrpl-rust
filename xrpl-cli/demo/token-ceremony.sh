@@ -431,15 +431,15 @@ check_exit_codes() {
 
   # No controlling terminal here, and `tx edit` needs one. This is the only
   # exit code that is reached by *not* being able to ask a human something.
-  "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
-    | "$XRPL" tx edit >/dev/null 2>&1
+  { "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
+      | "$XRPL" tx edit; } >/dev/null 2>&1
   code=$?; [[ $code -eq 5 ]] || { echo "no terminal to prompt on should exit 5, got $code" >&2; exit 1; }
   note "5 declined, or nothing to ask on"
 
   "$XRPL" key add watcher-only --public-key "$("$XRPL" key show issuer --json | jq -r .public_key)" >/dev/null 2>&1
-  "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
-      --field Fee=12 --field Sequence=1 \
-    | "$XRPL" tx sign --sign-with watcher-only >/dev/null 2>&1
+  { "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
+        --field Fee=12 --field Sequence=1 \
+      | "$XRPL" tx sign --sign-with watcher-only; } >/dev/null 2>&1
   code=$?; [[ $code -eq 6 ]] || { echo "unusable signer should exit 6, got $code" >&2; exit 1; }
   note "6 signer unavailable"
 
