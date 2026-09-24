@@ -162,6 +162,7 @@ jobs:
             -p xrpl-cli --features integration \
             --test integration \
             --test rpc \
+            --test tx \
             -- --test-threads=1
         env:
           RUST_BACKTRACE: 1

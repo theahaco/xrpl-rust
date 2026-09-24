@@ -1,3 +1,10 @@
+// These call `output::signed_tx_blob` and `output::submit_hint`, both now
+// deprecated: prose on stdout is unpipeable, and the "To submit, use: ..." hint
+// is what made copy-pasting a hex blob between two commands the documented
+// workflow. The functions and these commands are deleted together by the
+// removal PR, so the warning is silenced rather than chased here.
+#![allow(deprecated)]
+
 use serde_json::Value;
 use xrpl::asynch::transaction::sign;
 use xrpl::models::transactions::{

@@ -187,14 +187,57 @@ mod cli_tests {
 
     // ===== WALLET OPERATIONS TESTS =====
 
+    /// The contract every migrated wallet command follows: exactly one JSON
+    /// object on stdout and nothing else, so a script can `jq` it.
+    fn wallet_json(output: &str) -> serde_json::Value {
+        let value: serde_json::Value =
+            serde_json::from_str(output.trim()).unwrap_or_else(|error| {
+                panic!("stdout should be one JSON object, got {output:?}: {error}")
+            });
+
+        assert!(
+            value["classic_address"]
+                .as_str()
+                .is_some_and(|address| address.starts_with('r')),
+            "classic_address should be an r-address: {value}"
+        );
+        assert!(
+            !value["public_key"].as_str().unwrap_or_default().is_empty(),
+            "public_key should be present: {value}"
+        );
+        assert!(value["algorithm"].is_string(), "algorithm missing: {value}");
+
+        value
+    }
+
     #[test]
     fn test_generate_wallet() {
         let output = run_cli_command(&["wallet", "generate"])
             .expect("Failed to run wallet generate command");
 
-        // Check that the output contains expected wallet information
-        assert!(output.contains("Generated wallet:"));
-        assert_wallet_output(&output);
+        let value = wallet_json(&output);
+
+        // Without --show-secret the seed is generated and thrown away. stdout
+        // must not carry it, or redirecting this to a file leaks a key the user
+        // did not ask to keep.
+        assert!(
+            value.get("seed").is_none(),
+            "seed must not appear without --show-secret: {value}"
+        );
+    }
+
+    #[test]
+    fn test_generate_wallet_show_secret() {
+        let output = run_cli_command(&["wallet", "generate", "--show-secret"])
+            .expect("Failed to run wallet generate --show-secret");
+
+        let value = wallet_json(&output);
+        assert!(
+            value["seed"]
+                .as_str()
+                .is_some_and(|seed| seed.starts_with('s')),
+            "--show-secret should print a base58 family seed: {value}"
+        );
     }
 
     #[test]
@@ -202,26 +245,32 @@ mod cli_tests {
         let output = run_cli_command(&["wallet", "from-seed", "--seed", constants::TEST_SEED])
             .expect("Failed to run wallet from-seed command");
 
-        // Check that the output contains expected wallet information
-        assert!(output.contains("Wallet from seed:"));
-        assert_wallet_output(&output);
+        // TEST_SEED is the standalone genesis seed, so the address it derives is
+        // known — assert the value rather than merely that a field exists.
+        assert_eq!(
+            wallet_json(&output)["classic_address"].as_str(),
+            Some(constants::TEST_CLASSIC_ADDRESS)
+        );
     }
 
+    /// `--save` and `--mnemonic` are kept as hidden flags purely so they fail
+    /// with an explanation instead of clap's bare "unexpected argument". Assert
+    /// the refusal, so neither can quietly come back.
     #[test]
-    fn test_wallet_from_seed_with_sequence() {
-        let output = run_cli_command(&[
-            "wallet",
-            "from-seed",
-            "--seed",
-            constants::TEST_SEED,
-            "--sequence",
-            "1",
-        ])
-        .expect("Failed to run wallet from-seed command with sequence");
+    fn test_removed_wallet_generate_flags_explain_themselves() {
+        for (flag, expected) in [
+            ("--save", "does not write secrets to disk"),
+            ("--mnemonic", "no derivation-path convention"),
+        ] {
+            let error = run_cli_command(&["wallet", "generate", flag])
+                .expect_err("removed flags should exit non-zero");
 
-        // Check that the output contains expected wallet information
-        assert!(output.contains("Wallet from seed:"));
-        assert_wallet_output(&output);
+            let message = error.to_string();
+            assert!(
+                message.contains(expected),
+                "{flag} should explain itself, got: {message}"
+            );
+        }
     }
 
     /// This test uses the public testnet since Docker standalone doesn't have a faucet.
@@ -238,30 +287,6 @@ mod cli_tests {
         let output = result.unwrap();
         assert!(output.contains("Generated faucet wallet:"));
         assert_wallet_output(&output);
-    }
-
-    #[test]
-    fn test_generate_wallet_with_mnemonic() {
-        let output = run_cli_command(&["wallet", "generate", "--mnemonic", "--words", "12"])
-            .expect("Failed to run wallet generate with mnemonic");
-
-        // Check that the output contains the mnemonic and seed
-        assert!(output.contains("Generated wallet with mnemonic:"));
-        assert!(output.contains("Mnemonic:"));
-        assert!(output.contains("Seed:"));
-
-        // Check that the mnemonic has 12 words
-        let mnemonic_line = output
-            .lines()
-            .find(|l| l.contains("Mnemonic:"))
-            .expect("Mnemonic line not found");
-        let mnemonic_phrase = mnemonic_line.trim_start_matches("Mnemonic:").trim();
-        let word_count = mnemonic_phrase.split_whitespace().count();
-        assert_eq!(
-            word_count, 12,
-            "Mnemonic should have 12 words, got {}",
-            word_count
-        );
     }
 
     // ===== ACCOUNT QUERY TESTS =====

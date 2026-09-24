@@ -1,23 +1,30 @@
-use xrpl::wallet::Wallet;
+//! `xrpl wallet from-seed` — show the address a seed derives.
+
+use serde_json::json;
+
+use xrpl::signer::RawSigner;
 
 use crate::error::Error;
+use crate::output;
+use crate::signer::SigningArgs;
 
 /// Derive a wallet from a seed.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// The seed to use
-    #[arg(long)]
-    pub seed: String,
-
-    /// The sequence number
-    #[arg(long, default_value_t = 0)]
-    pub sequence: u64,
+    #[command(flatten)]
+    pub signing: SigningArgs,
 }
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        let wallet = Wallet::new(&self.seed, self.sequence)?;
-        println!("Wallet from seed: {wallet:#?}");
-        Ok(())
+        // Through `SigningArgs`, so the address can be checked without the seed
+        // ever reaching `argv`.
+        let wallet = self.signing.resolve()?;
+
+        output::artifact(&json!({
+            "classic_address": wallet.classic_address,
+            "public_key": wallet.public_key,
+            "algorithm": format!("{:?}", wallet.algorithm()),
+        }))
     }
 }

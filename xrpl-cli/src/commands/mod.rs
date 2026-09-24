@@ -10,6 +10,7 @@ pub mod ledger;
 pub mod rpc;
 pub mod server;
 pub mod transaction;
+pub mod tx;
 pub mod wallet;
 
 use crate::error::Error;
@@ -57,6 +58,10 @@ pub enum Commands {
 
     /// Call any rippled RPC directly
     Rpc(rpc::Cmd),
+
+    /// Build, sign and submit transactions through a pipeline
+    #[command(subcommand)]
+    Tx(tx::Cmd),
 }
 
 impl Commands {
@@ -68,6 +73,7 @@ impl Commands {
             Commands::Server(cmd) => cmd.run(),
             Commands::Ledger(cmd) => cmd.run(),
             Commands::Rpc(cmd) => cmd.run(),
+            Commands::Tx(cmd) => cmd.run(),
         }
     }
 }
