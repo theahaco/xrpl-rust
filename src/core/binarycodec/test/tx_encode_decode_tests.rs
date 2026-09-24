@@ -961,21 +961,33 @@ fn test_encode_for_multisigning_blob() {
 
 #[test]
 fn test_encode_for_signing_batch_blob() {
-    // Port of xrpl.js: "can create batch blob"
-    let flags = 1u32;
+    // Was a port of xrpl.js's "can create batch blob", which pins an earlier
+    // draft of XLS-56: prefix ++ flags ++ count ++ ids and nothing else.
+    // rippled 3.4.0-rc1 rejects a signature over that with "Invalid signature",
+    // verified against a live node, so the vector is kept only as the shape it
+    // is NOT — the account, the sequence and the signer are what it was missing.
+    let account = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";
+    let signer = "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe";
     let tx_ids = [
         "ABE4871E9083DF66727045D49DEEDD3A6F166EB7F8D1E92FE868F02E76B2C5CA",
         "795AAC88B59E95C3497609749127E69F12958BC016C600C770AEEB1474C840B4",
     ];
-    let actual = encode_for_signing_batch(flags, &tx_ids).expect("encode_for_signing_batch failed");
+
+    let actual =
+        encode_for_signing_batch(account, 7, 1, &tx_ids, signer).expect("encodes the pre-image");
+
     let expected = [
-        "42434800", // hash prefix
-        "00000001", // flags
-        "00000002", // txIds length
+        "42434800",                                 // BCH\0
+        "B5F762798A53D543A014CAF8B297CFF8F2F937E8", // outer AccountID
+        "00000007",                                 // outer sequence
+        "00000001",                                 // outer flags
+        "00000002",                                 // inner count
         "ABE4871E9083DF66727045D49DEEDD3A6F166EB7F8D1E92FE868F02E76B2C5CA",
         "795AAC88B59E95C3497609749127E69F12958BC016C600C770AEEB1474C840B4",
+        "F667B0CA50CC7709A220B0561B85E53A48461FA8", // the signer's own AccountID
     ]
     .join("");
+
     assert_eq!(actual, expected);
 }
 
