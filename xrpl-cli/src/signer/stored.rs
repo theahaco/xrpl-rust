@@ -22,8 +22,8 @@ use xrpl::signer::{RawSigner, SignOutcome, SigningDomain, XRPLSignerResult};
 use xrpl::wallet::Wallet;
 use zeroize::Zeroize;
 
-use crate::error::{Error, SignerError};
-use crate::store::{KeySource, Store};
+use crate::error::Error;
+use crate::store::Store;
 use crate::tty;
 
 /// The environment variable a script supplies a passphrase through.
@@ -48,18 +48,7 @@ impl StoredSigner {
     pub fn unlock(store: &Store, id: &str) -> Result<Self, Error> {
         let record = store.key(id)?;
 
-        let blob = match &record.source {
-            KeySource::WatchOnly => {
-                return Err(SignerError::Unavailable(format!(
-                    "{id} is watch-only: it has a public key and no secret"
-                ))
-                .into())
-            }
-            KeySource::SecureStore { .. } => {
-                return Err(SignerError::BackendNotEnabled("secure-store").into())
-            }
-            KeySource::EncryptedFile { path } => store.read_secret(path)?,
-        };
+        let blob = store.read_key_secret(id, &record)?;
 
         let passphrase = passphrase_for(id)?;
         let mut seed = crate::store::secret::decrypt(&blob, &passphrase)?;
@@ -131,7 +120,8 @@ fn passphrase_for(id: &str) -> Result<String, Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::{KeyRecord, Store};
+    use crate::error::SignerError;
+    use crate::store::{KeyRecord, KeySource, Store};
 
     const SEED: &str = "snoPBrXtMeMyMHUVTgbuqAfg1SUTb";
     const ADDRESS: &str = "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh";

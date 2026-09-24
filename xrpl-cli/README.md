@@ -97,6 +97,35 @@ time**, and nothing stronger: it defends against a stolen laptop, a record
 committed to a repository, a dotfiles sync and a backup, but not against malware
 running as you while you sign.
 
+### Where the encrypted blob lives
+
+By default, a file under the data directory. `--secure-store` on `key add` or
+`key generate` puts it in the OS credential store instead — Keychain Services,
+Credential Manager, or the Secret Service — so it is not on the filesystem at
+all, and not in a dotfiles sync or a backup of the home directory.
+
+```bash
+cargo install --path xrpl-cli --features secure-store
+xrpl key generate issuer --secure-store
+```
+
+It is the same encrypted blob either way. **Encrypting first is what makes the
+location a swappable detail**: a plaintext secret in a keychain defends against
+a stolen disk and a committed dotfile and against nothing else — on Linux any
+process on the session bus reads it with no prompt, and on macOS the ACL is
+pinned to a code-signing identity, so a `cargo build` binary is never on it and
+users get pushed toward "Always Allow".
+
+The feature is off by default because it links a platform backend, and on Linux
+a D-Bus client. A binary built without it still *reads* a `secure-store` record
+— it lists, `account doctor` reports it, and only using it is refused, naming
+the missing backend. Every call has a 30-second deadline, because a Secret
+Service that is not running is otherwise a hang.
+
+`key rm` forgets the record and leaves the secret alone. `key rm
+--delete-secret` destroys it, wherever it lives; the 16-byte seed is the only
+backup there is.
+
 Every signature made through a key record is appended to `signing.log` in the
 data directory — the key id, the address and the signing domain. Never the
 payload, never the secret.

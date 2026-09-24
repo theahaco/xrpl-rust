@@ -33,6 +33,13 @@ pub struct Cmd {
     /// Replace an existing record of the same name.
     #[arg(long)]
     pub force: bool,
+
+    /// Keep the encrypted blob in the OS credential store, not in a file.
+    ///
+    /// It is the same encrypted blob either way — this changes where it lives,
+    /// so it is not in a dotfiles sync or a backup of the home directory.
+    #[arg(long)]
+    pub secure_store: bool,
 }
 
 impl Cmd {
@@ -49,10 +56,14 @@ impl Cmd {
 
         if let Some(seed) = self.read_seed()? {
             let mut seed = seed;
-            let record = super::enrol::enrol(&store, &self.id, &seed)?;
+            let record = super::enrol::enrol(&store, &self.id, &seed, self.backend())?;
             seed.zeroize();
 
-            output::note(format!("enrolled {}, encrypted at rest", self.id));
+            output::note(format!(
+                "enrolled {} in the {} backend, encrypted at rest",
+                self.id,
+                record.source.label()
+            ));
             return output::artifact(&super::describe(&self.id, &record));
         }
 
@@ -100,6 +111,14 @@ impl Cmd {
         ));
 
         output::artifact(&super::describe(&self.id, &record))
+    }
+
+    fn backend(&self) -> super::enrol::Backend {
+        if self.secure_store {
+            super::enrol::Backend::SecureStore
+        } else {
+            super::enrol::Backend::EncryptedFile
+        }
     }
 
     /// The seed to enrol, if one was offered.

@@ -2,8 +2,8 @@
 //!
 //! # Two directories, and why accounts are not in the config one
 //!
-//! Accounts and keys go in the **data** directory (`~/.local/share/xrpl`), not
-//! the config directory. `~/.config` is what chezmoi, yadm and every other
+//! Accounts and keys go in the **data** directory — `~/.local/share/xrpl`, or
+//! `%LOCALAPPDATA%\xrpl` on Windows — not the config directory. `~/.config` is what chezmoi, yadm and every other
 //! dotfiles tool sweeps into a git repository, and an account record binds a
 //! name to an r-address. Committing `alice = rXXXX` to a public dotfiles repo
 //! permanently links a human identity to that account's entire transaction
@@ -13,6 +13,10 @@
 //! Accounts are state, not configuration. The data directory is both the
 //! semantically correct home and the cheapest thing that stops them being
 //! synced by accident. `config.toml` holds defaults and nothing identifying.
+//!
+//! Windows gets the same split for the same reason: `%APPDATA%` roams with a
+//! domain profile and `%LOCALAPPDATA%` does not, so records go in the local one
+//! and preferences in the roaming one.
 //!
 //! # One tier, deliberately
 //!
@@ -44,8 +48,18 @@ impl Locator {
     /// Resolve both directories from the environment.
     pub fn from_env() -> Result<Self, Error> {
         Ok(Self {
-            data: resolve(DATA_DIR_ENV, "XDG_DATA_HOME", ".local/share")?,
-            config: resolve(CONFIG_DIR_ENV, "XDG_CONFIG_HOME", ".config")?,
+            // On Windows, records go under `%LOCALAPPDATA%` and preferences
+            // under `%APPDATA%`. That is the same argument as the Unix split:
+            // `%APPDATA%` roams with a domain profile, and an account record
+            // binding a name to an r-address is state that should stay on the
+            // machine it was made on.
+            data: resolve(
+                DATA_DIR_ENV,
+                "XDG_DATA_HOME",
+                ".local/share",
+                "LOCALAPPDATA",
+            )?,
+            config: resolve(CONFIG_DIR_ENV, "XDG_CONFIG_HOME", ".config", "APPDATA")?,
         })
     }
 
@@ -119,7 +133,19 @@ impl Locator {
     }
 }
 
-fn resolve(override_env: &str, xdg_env: &str, fallback: &str) -> Result<PathBuf, Error> {
+/// Resolve one directory: the explicit override, then the platform's own
+/// convention.
+///
+/// `windows_base` is the environment variable Windows names the equivalent
+/// location with; the XDG variable and the `$HOME`-relative fallback are the
+/// Unix pair. Honouring `XDG_*` first on every platform is deliberate — someone
+/// running this under MSYS or WSL-style tooling has set them on purpose.
+fn resolve(
+    override_env: &str,
+    xdg_env: &str,
+    unix_fallback: &str,
+    windows_base: &str,
+) -> Result<PathBuf, Error> {
     if let Some(path) = std::env::var_os(override_env) {
         return Ok(PathBuf::from(path));
     }
@@ -128,15 +154,33 @@ fn resolve(override_env: &str, xdg_env: &str, fallback: &str) -> Result<PathBuf,
         return Ok(PathBuf::from(path).join("xrpl"));
     }
 
-    let home = std::env::var_os("HOME")
-        .filter(|h| !h.is_empty())
-        .ok_or_else(|| {
-            Error::other(format!(
-                "cannot find a home directory; set {override_env} to say where records live"
-            ))
-        })?;
+    #[cfg(windows)]
+    {
+        let _ = unix_fallback;
 
-    Ok(PathBuf::from(home).join(fallback).join("xrpl"))
+        if let Some(base) = std::env::var_os(windows_base).filter(|p| !p.is_empty()) {
+            return Ok(PathBuf::from(base).join("xrpl"));
+        }
+
+        Err(Error::other(format!(
+            "cannot find {windows_base}; set {override_env} to say where records live"
+        )))
+    }
+
+    #[cfg(not(windows))]
+    {
+        let _ = windows_base;
+
+        let home = std::env::var_os("HOME")
+            .filter(|h| !h.is_empty())
+            .ok_or_else(|| {
+                Error::other(format!(
+                    "cannot find a home directory; set {override_env} to say where records live"
+                ))
+            })?;
+
+        Ok(PathBuf::from(home).join(unix_fallback).join("xrpl"))
+    }
 }
 
 #[cfg(test)]
@@ -160,6 +204,30 @@ mod tests {
             || {
                 let locator = Locator::from_env().expect("resolves");
                 assert_eq!(locator.data_dir(), dir.path().join("xrpl"));
+            },
+        );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn test_windows_keeps_records_out_of_the_roaming_profile() {
+        // `%APPDATA%` roams with a domain profile; `%LOCALAPPDATA%` does not.
+        // An account record binds a name to a permanent public address, which
+        // is the same reason it is not in `~/.config` on Unix.
+        with_env(
+            &[
+                (DATA_DIR_ENV, None),
+                (CONFIG_DIR_ENV, None),
+                ("XDG_DATA_HOME", None),
+                ("XDG_CONFIG_HOME", None),
+            ],
+            || {
+                let locator = Locator::from_env().expect("resolves");
+                let local = std::env::var("LOCALAPPDATA").expect("set on Windows");
+                let roaming = std::env::var("APPDATA").expect("set on Windows");
+
+                assert_eq!(locator.data_dir(), Path::new(&local).join("xrpl"));
+                assert_eq!(locator.config_dir(), Path::new(&roaming).join("xrpl"));
             },
         );
     }

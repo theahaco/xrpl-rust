@@ -27,6 +27,13 @@ pub struct Cmd {
     /// Replace an existing record of the same name.
     #[arg(long)]
     pub force: bool,
+
+    /// Keep the encrypted blob in the OS credential store, not in a file.
+    ///
+    /// It is the same encrypted blob either way — this changes where it lives,
+    /// so it is not in a dotfiles sync or a backup of the home directory.
+    #[arg(long)]
+    pub secure_store: bool,
 }
 
 impl Cmd {
@@ -48,7 +55,12 @@ impl Cmd {
         };
 
         let mut seed = xrpl::core::keypairs::generate_seed(None, algorithm)?;
-        let record = super::enrol::enrol(&store, &self.id, &seed)?;
+        let backend = if self.secure_store {
+            super::enrol::Backend::SecureStore
+        } else {
+            super::enrol::Backend::EncryptedFile
+        };
+        let record = super::enrol::enrol(&store, &self.id, &seed, backend)?;
 
         // The 16-byte family seed *is* the backup: this crate has no mnemonic
         // convention, so there is nothing else human-transcribable. Show it

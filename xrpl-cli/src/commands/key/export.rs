@@ -15,7 +15,7 @@ use zeroize::Zeroize;
 use crate::error::Error;
 use crate::output;
 use crate::signer::stored::PASSPHRASE_ENV;
-use crate::store::{secret, KeySource, Store};
+use crate::store::{secret, Store};
 use crate::tty;
 
 #[derive(Debug, Clone, clap::Args)]
@@ -40,18 +40,7 @@ impl Cmd {
         let store = Store::from_env()?;
         let record = store.key(&self.id)?;
 
-        let blob = match &record.source {
-            KeySource::EncryptedFile { path } => store.read_secret(path)?,
-            KeySource::WatchOnly => {
-                return Err(Error::other(format!(
-                    "{} is watch-only: there is no secret to export",
-                    self.id
-                )))
-            }
-            KeySource::SecureStore { .. } => {
-                return Err(crate::error::SignerError::BackendNotEnabled("secure-store").into())
-            }
-        };
+        let blob = store.read_key_secret(&self.id, &record)?;
 
         let passphrase = match std::env::var(PASSPHRASE_ENV) {
             Ok(value) if !value.is_empty() => value,

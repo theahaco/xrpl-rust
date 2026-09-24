@@ -360,3 +360,161 @@ fn test_key_add_with_nothing_to_record_says_so() {
     output.assert_code(1);
     output.assert_stderr_contains("nothing to record");
 }
+
+// ---------------------------------------------------------------------------
+// The OS credential store
+// ---------------------------------------------------------------------------
+
+/// What a binary built without the backend does with a record that needs it.
+///
+/// This is the case #14 is about: the `KeySource` variant is unconditional, so
+/// a record written on a machine with the feature still parses here. Only
+/// *using* it is refused, and the message names the missing backend rather than
+/// looking like a corrupt file.
+#[cfg(not(feature = "secure-store"))]
+#[test]
+fn test_a_secure_store_record_is_readable_without_the_backend() {
+    let env = env_with_passphrase();
+
+    std::fs::create_dir_all(env.data_dir().join("keys")).expect("create");
+    std::fs::write(
+        env.data_dir().join("keys/elsewhere.toml"),
+        r#"version = 1
+kind = "key"
+public_key = "ED9434799226374926EDA3B54B1B461B4ABF7237962EAE18528FEA67595397FA32"
+algorithm = "ed25519"
+classic_address = "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD"
+source = "secure-store"
+entry = "elsewhere"
+"#,
+    )
+    .expect("write");
+
+    // It lists, and says where its secret is.
+    let listed = env.run(&["key", "show", "elsewhere", "--json"]);
+    listed.assert_success();
+    assert_eq!(listed.stdout_json()["source"], "secure-store");
+
+    // And it refuses at the point of use, naming the backend.
+    let exported = env.run(&[
+        "key",
+        "export",
+        "elsewhere",
+        "--i-understand-this-prints-a-secret",
+    ]);
+    exported.assert_code(6);
+    exported.assert_stderr_contains("secure-store");
+
+    // `doctor` says the same thing in its own terms.
+    env.run(&[
+        "account",
+        "add",
+        "elsewhere",
+        "--address",
+        "rLUEXYuLiQptky37CqLcm9USQpPiz5rkpD",
+        "--network-id",
+        "0",
+        "--key",
+        "elsewhere",
+    ])
+    .assert_success();
+
+    let report = env.run(&["account", "doctor", "elsewhere"]);
+    report.assert_success();
+    // The findings are the artifact, so they are on stdout.
+    assert!(
+        report
+            .stdout
+            .contains("built without the secure-store feature"),
+        "stdout: {}",
+        report.stdout
+    );
+}
+
+#[test]
+fn test_rm_leaves_the_secret_alone_unless_asked() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let blob = env.data_dir().join("secrets/genesis.age");
+    assert!(blob.exists());
+
+    env.run(&["key", "rm", "genesis"]).assert_success();
+
+    // Forgetting a record is not destroying a key. The blob outlives it, and
+    // `key add --seed-file` is not the only way back.
+    assert!(blob.exists(), "rm must not destroy the secret");
+}
+
+#[test]
+fn test_rm_delete_secret_destroys_it_and_says_so() {
+    let env = env_with_passphrase();
+    enrol_genesis(&env, "genesis");
+
+    let blob = env.data_dir().join("secrets/genesis.age");
+    let removed = env.run(&["key", "rm", "genesis", "--delete-secret"]);
+    removed.assert_success();
+
+    assert!(!blob.exists(), "--delete-secret must destroy the secret");
+    // The 16-byte family seed is the only backup there is, so this says so
+    // rather than reporting a tidy success.
+    removed.assert_stderr_contains("that key is gone");
+}
+
+/// A real round trip through this machine's credential store.
+///
+/// `#[ignore]` on purpose: it writes an entry into the developer's own keychain
+/// and, on macOS, raises an access dialog. CI builds the feature on all three
+/// platforms — which is what catches the compile and link errors a
+/// platform-specific backend actually produces — and real credential-store
+/// verification is a manual pre-release step.
+///
+/// Run it with `cargo test -p xrpl-cli --features secure-store -- --ignored`.
+#[cfg(feature = "secure-store")]
+#[test]
+#[ignore = "writes to the developer's real credential store"]
+fn test_a_key_round_trips_through_the_credential_store() {
+    let env = env_with_passphrase();
+    let path = private_seed_file(&env);
+
+    let added = env.run(&[
+        "key",
+        "add",
+        "ceremony-test-key",
+        "--seed-file",
+        path.to_str().unwrap(),
+        "--secure-store",
+    ]);
+    added.assert_success();
+    added.assert_stderr_contains("secure-store");
+
+    // Nothing on the filesystem: that is the whole difference this backend
+    // makes, so it is what the test checks.
+    assert!(
+        !env.data_dir()
+            .join("secrets/ceremony-test-key.age")
+            .exists(),
+        "the secure-store backend must not write a blob to disk"
+    );
+
+    let exported = env.run(&[
+        "key",
+        "export",
+        "ceremony-test-key",
+        "--i-understand-this-prints-a-secret",
+    ]);
+    exported.assert_success();
+    assert_eq!(exported.stdout_json()["seed"], GENESIS_SEED);
+
+    // Clean up after ourselves — this one lives outside the temp directory.
+    env.run(&["key", "rm", "ceremony-test-key", "--delete-secret"])
+        .assert_success();
+
+    let gone = env.run(&[
+        "key",
+        "export",
+        "ceremony-test-key",
+        "--i-understand-this-prints-a-secret",
+    ]);
+    gone.assert_code(4);
+}
