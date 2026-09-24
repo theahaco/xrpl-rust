@@ -45,8 +45,31 @@ impl Secp256k1 {
     }
 
     /// Format a provided key.
+    ///
+    /// Left-pads to 66 characters, which turns a private key's 64 hex
+    /// characters into the `00`-prefixed form XRPL writes. A public key is
+    /// already 66 and is unchanged.
     fn _format_key(keystr: &str) -> String {
         format!("{keystr:0>SECP256K1_KEY_LENGTH$}")
+    }
+
+    /// Recover a private key's own hex from the form [`Self::_format_key`]
+    /// produces.
+    ///
+    /// By width, never by repetition. `trim_start_matches('0')` removes the
+    /// prefix *and* the key's own leading zeros — and one secp256k1 key in
+    /// sixteen begins with a zero nibble, which left a 63-character string that
+    /// `SecretKey::from_str` rejected as `InvalidSecretKey`. Because
+    /// `derive_keypair` signs a test message to verify itself, that surfaced as
+    /// 6.25% of secp256k1 key derivations failing outright.
+    fn _strip_prefix(key: &str) -> &str {
+        match key.len() {
+            // The XRPL string form: a two-character prefix and 64 hex
+            // characters. Anything else is taken as already bare, and
+            // `from_str` is the one that decides whether it is a key.
+            SECP256K1_KEY_LENGTH => &key[SECP256K1_PREFIX.len()..],
+            _ => key,
+        }
     }
 
     /// Format the public and private keys.
@@ -274,7 +297,7 @@ impl CryptoImplementation for Secp256k1 {
     fn sign(&self, message_bytes: &[u8], private_key: &PrivateKey) -> XRPLCoreResult<Vec<u8>> {
         let secp = secp256k1::Secp256k1::<secp256k1::SignOnly>::signing_only();
         let message = Self::_get_message(message_bytes);
-        let trimmed_key = private_key.as_str().trim_start_matches(SECP256K1_PREFIX);
+        let trimmed_key = Self::_strip_prefix(private_key.as_str());
         let private = secp256k1::SecretKey::from_str(trimmed_key)
             .map_err(XRPLKeypairsException::SECP256K1Error)?;
         let signature = secp.sign_ecdsa(&message, &private);
@@ -555,5 +578,87 @@ mod test {
         let message: &[u8] = TEST_MESSAGE.as_bytes();
 
         assert!(Ed25519.is_valid_message(message, signature, PUBLIC_ED25519));
+    }
+
+    /// Three seeds whose secp256k1 private key begins with a zero nibble.
+    ///
+    /// All three failed to derive before the prefix was stripped by width:
+    /// `trim_start_matches('0')` removed the `00` prefix *and* the key's own
+    /// leading zero, and `SecretKey::from_str` rejected the 63-character
+    /// remainder as `InvalidSecretKey`. `derive_keypair` signs a test message
+    /// to verify itself, so this surfaced as the derivation failing outright —
+    /// for one secp256k1 key in sixteen.
+    const LEADING_ZERO_SEEDS: [(&str, &str); 3] = [
+        (
+            "shoAVwphgeUUZrvacPcifnsdXCxWY",
+            "rPnWRKUU7pJwCPtBZH82J9qYPAEZwpyNEs",
+        ),
+        (
+            "ssr61cqBntuM7qY5m9dQjAoXJGsE7",
+            "rs8F496rekGVSPHRxRykvXLz3ZtXiwMkh3",
+        ),
+        (
+            "snEstdxHaDS88D2rYFR86zwvTEcdA",
+            "rET3ebANtonDcdreDDpaUdNBVFGSmHRHNd",
+        ),
+    ];
+
+    #[test]
+    fn test_a_private_key_beginning_with_zero_still_derives() {
+        use crate::core::keypairs::{derive_classic_address, derive_keypair};
+
+        for (seed, address) in LEADING_ZERO_SEEDS {
+            let (public, _private) =
+                derive_keypair(seed, false).expect("a leading zero is not a bad key");
+
+            assert_eq!(derive_classic_address(&public).expect("address"), address);
+        }
+    }
+
+    #[test]
+    fn test_a_private_key_beginning_with_zero_still_signs() {
+        use crate::core::keypairs::{derive_keypair, is_valid_message};
+
+        let message = b"a leading zero is not a shorter key";
+
+        for (seed, _) in LEADING_ZERO_SEEDS {
+            let (public, private) = derive_keypair(seed, false).expect("derives");
+            let signature = hex::encode_upper(Secp256k1.sign(message, &private).expect("signs"));
+
+            assert!(is_valid_message(message, &signature, &public));
+        }
+    }
+
+    #[test]
+    fn test_the_prefix_is_removed_by_width_not_by_repetition() {
+        // The key's own hex begins with three zeros here. Trimming a run of
+        // '0' would leave 61 characters; removing a two-character prefix
+        // leaves the 64 that are actually the key.
+        let formatted = format!("00000{}", "1".repeat(61));
+        assert_eq!(formatted.len(), SECP256K1_KEY_LENGTH);
+
+        let stripped = Secp256k1::_strip_prefix(&formatted);
+        assert_eq!(stripped.len(), 64);
+        assert_eq!(&stripped[..3], "000");
+    }
+
+    #[test]
+    fn test_an_unprefixed_key_is_left_alone() {
+        // 64 characters is already the bare key; taking two off it would be
+        // the same bug in the other direction.
+        let bare = "0".repeat(64);
+        assert_eq!(Secp256k1::_strip_prefix(&bare).len(), 64);
+    }
+
+    #[test]
+    fn test_formatting_and_stripping_are_inverses() {
+        for leading in ["00", "0f", "f0", "ff"] {
+            let key = format!("{leading}{}", "ab".repeat(31));
+            assert_eq!(key.len(), 64);
+
+            let formatted = Secp256k1::_format_key(&key);
+            assert_eq!(formatted.len(), SECP256K1_KEY_LENGTH);
+            assert_eq!(Secp256k1::_strip_prefix(&formatted), key);
+        }
     }
 }

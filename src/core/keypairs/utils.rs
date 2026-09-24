@@ -27,8 +27,15 @@ pub const SHA512_HASH_LENGTH: usize = 32;
 
 /// ED25519 prefix
 pub const ED25519_PREFIX: &str = "ED";
-/// SECP256K1 prefix
-pub const SECP256K1_PREFIX: char = '0';
+/// SECP256K1 private-key prefix.
+///
+/// XRPL writes a secp256k1 private key as these two characters followed by the
+/// key's own 64 hex characters. It is a prefix of a **fixed width**, not a run
+/// of `'0'`: removing it with `trim_start_matches('0')` also removes the key's
+/// own leading zeros, and one secp256k1 key in sixteen begins with a zero
+/// nibble. This was a `char` for exactly that reason, and is a `&str` now so
+/// the mistake is not expressible.
+pub const SECP256K1_PREFIX: &str = "00";
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum Secp256k1Phase {
