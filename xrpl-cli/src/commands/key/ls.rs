@@ -34,13 +34,13 @@ impl Cmd {
         for row in &rows {
             // The public key is shown alongside the id because two people can
             // both name a key `issuer` and mean different keys.
-            println!(
+            crate::output::raw_line(&format!(
                 "{:<24} {:<12} {:<36} {}",
                 row["id"].as_str().unwrap_or_default(),
                 row["algorithm"].as_str().unwrap_or_default(),
                 row["classic_address"].as_str().unwrap_or_default(),
                 row["source"].as_str().unwrap_or_default(),
-            );
+            ))?;
         }
 
         Ok(())

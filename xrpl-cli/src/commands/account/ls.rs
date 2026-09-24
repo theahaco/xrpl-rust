@@ -39,12 +39,12 @@ impl Cmd {
             } else {
                 " "
             };
-            println!(
+            crate::output::raw_line(&format!(
                 "{marker} {:<20} {:<36} {}",
                 alias,
                 row["address"].as_str().unwrap_or_default(),
                 row["keys"].as_array().map(Vec::len).unwrap_or(0),
-            );
+            ))?;
         }
 
         Ok(())
