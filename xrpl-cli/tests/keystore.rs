@@ -518,3 +518,48 @@ fn test_a_key_round_trips_through_the_credential_store() {
     ]);
     gone.assert_code(4);
 }
+
+#[test]
+fn test_backends_says_what_this_binary_can_sign_with() {
+    let env = TestEnv::new();
+
+    let listed = env.run(&["key", "backends", "--json"]);
+    listed.assert_success();
+
+    let value = listed.stdout_json();
+    let backends = value.as_array().expect("an array");
+
+    // Every `KeySource` label plus `ephemeral`, which is a backend rather than
+    // a special case in the signing stage.
+    let names: Vec<&str> = backends
+        .iter()
+        .map(|b| b["name"].as_str().expect("name"))
+        .collect();
+    assert_eq!(
+        names,
+        ["ephemeral", "encrypted-file", "secure-store", "watch-only"]
+    );
+
+    let ephemeral = &backends[0];
+    assert_eq!(ephemeral["available"], true);
+    // It enrols nothing and journals nothing, which is what keeps
+    // `tx sign --seed-file` usable on a read-only container.
+    assert_eq!(ephemeral["enrolled"], false);
+    assert_eq!(ephemeral["journals"], false);
+
+    // Listed whether or not it was built in: "unknown backend" and "not
+    // compiled in" are different problems with different remedies.
+    let secure = backends
+        .iter()
+        .find(|b| b["name"] == "secure-store")
+        .expect("listed");
+    assert_eq!(secure["available"], cfg!(feature = "secure-store"));
+}
+
+#[test]
+fn test_backends_needs_no_store_and_no_network() {
+    // It answers from the build, so it works before anything is enrolled and
+    // in a directory the CLI has never written to.
+    let env = TestEnv::new();
+    common::assert_offline(&env, &["key", "backends"]).assert_success();
+}

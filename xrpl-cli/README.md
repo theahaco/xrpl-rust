@@ -97,6 +97,20 @@ time**, and nothing stronger: it defends against a stolen laptop, a record
 committed to a repository, a dotfiles sync and a backup, but not against malware
 running as you while you sign.
 
+### Which backends this build has
+
+```console
+$ xrpl key backends
+ephemeral       available      a seed supplied for one invocation, then forgotten (--seed-file, XRPL_SEED, or a prompt)
+encrypted-file  available      a passphrase-encrypted blob in the data directory
+secure-store    not built in   the same encrypted blob, kept in the OS credential store instead of on the filesystem
+watch-only      available      a public key and no secret: it can be recognized, never used
+```
+
+`ephemeral` is a backend beside the others, not a special case in the signing
+stage. What separates it is that it enrols nothing and journals nothing, which
+is what keeps `tx sign --seed-file` a pure crypto stage.
+
 ### Where the encrypted blob lives
 
 By default, a file under the data directory. `--secure-store` on `key add` or
