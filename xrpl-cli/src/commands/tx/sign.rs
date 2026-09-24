@@ -33,7 +33,9 @@ impl Cmd {
         // Resolve the key before anything else, and before any runtime exists:
         // an interactive prompt inside a `block_on` panics, and only on the
         // interactive path, so CI would never see it.
-        let wallet = self.signing.resolve()?;
+        // Once per invocation, not once per transaction: a stream must never
+        // mean a passphrase prompt per line.
+        let signer = self.signing.signer()?;
 
         // A plain `s…` seed always derives secp256k1. A seed a user believes is
         // Ed25519 therefore signs validly, as an address they do not control —
@@ -41,16 +43,18 @@ impl Cmd {
         // address is signing is the cheapest possible guard.
         output::note(format!(
             "signing as {} ({:?})",
-            wallet.classic_address,
-            wallet.algorithm()
+            signer
+                .classic_address()
+                .map_err(|error| Error::other(error.to_string()))?,
+            signer.algorithm()
         ));
 
         let mut transactions = io::read_txs(&self.input.tx)?;
         for transaction in &mut transactions {
             if self.multisign {
-                multisign_one(transaction, &wallet)?;
+                multisign_one(transaction, &signer)?;
             } else {
-                sign_one(transaction, &wallet)?;
+                sign_one(transaction, &signer)?;
             }
         }
 

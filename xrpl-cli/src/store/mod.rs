@@ -1,8 +1,10 @@
 //! Reading and writing account and key records.
 
+pub mod journal;
 pub mod locator;
 pub mod record;
 pub mod resolve;
+pub mod secret;
 
 use std::fs;
 use std::path::Path;
@@ -95,6 +97,55 @@ impl Store {
         }
 
         Ok(using)
+    }
+
+    // -- secrets -----------------------------------------------------------
+
+    /// Write an encrypted blob and return the path to record.
+    ///
+    /// The path is relative to the data directory so a store stays portable: a
+    /// record hard-coding `/Users/someone/...` would be wrong the moment it
+    /// reached another machine, and records are meant to travel.
+    pub fn write_secret(&self, id: &str, blob: &str) -> Result<String, Error> {
+        check_alias(id)?;
+        let relative = format!("secrets/{id}.age");
+        write_text(&self.locator.data_dir().join(&relative), blob)?;
+
+        Ok(relative)
+    }
+
+    /// Read an encrypted blob named by a record.
+    pub fn read_secret(&self, relative: &str) -> Result<String, Error> {
+        let path = self.locator.data_dir().join(relative);
+
+        fs::read_to_string(&path).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::NotFound {
+                // The record is here and the secret is not. That happens when
+                // records sync between machines and secrets do not, which is
+                // the normal state in a ceremony rather than a fault.
+                Error::Signer(SignerError::Unavailable(format!(
+                    "{} is not on this machine",
+                    path.display()
+                )))
+            } else {
+                Error::Io(error)
+            }
+        })
+    }
+
+    /// Whether a recorded secret is present here.
+    pub fn has_secret(&self, relative: &str) -> bool {
+        self.locator.data_dir().join(relative).exists()
+    }
+
+    /// Forget an encrypted blob.
+    pub fn remove_secret(&self, relative: &str) -> Result<(), Error> {
+        let path = self.locator.data_dir().join(relative);
+        if path.exists() {
+            fs::remove_file(path).map_err(Error::Io)?;
+        }
+
+        Ok(())
     }
 
     // -- defaults ----------------------------------------------------------

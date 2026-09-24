@@ -30,7 +30,7 @@ use std::path::{Path, PathBuf};
 use xrpl::wallet::Wallet;
 use zeroize::Zeroize;
 
-use crate::error::{Error, SignerError};
+use crate::error::Error;
 use crate::output;
 use crate::tty;
 
@@ -61,10 +61,11 @@ pub struct SigningArgs {
     #[arg(long, hide = true)]
     pub seed: Option<String>,
 
-    /// Reserved for the key store. Repeatable from the start, so two
-    /// occurrences can later mean "produce a multisigned transaction" without a
-    /// parser change.
-    #[arg(long = "sign-with", value_name = "KEY_ID", hide = true)]
+    /// Sign with a recorded key, by id.
+    ///
+    /// Repeatable: passing it twice means "produce a multisigned transaction",
+    /// which is the same as running the signing stage once per key.
+    #[arg(long = "sign-with", value_name = "KEY_ID")]
     pub sign_with: Vec<String>,
 
     /// Reserved: the seed's algorithm is what decides the curve today.
@@ -88,7 +89,77 @@ impl core::fmt::Debug for SigningArgs {
     }
 }
 
+/// Whatever is going to sign: a recorded key, or a seed for this invocation.
+///
+/// Both are `RawSigner`s, so nothing downstream of here knows the difference —
+/// which is the point of having put the trait in the library.
+pub enum ResolvedSigner {
+    Stored(crate::signer::StoredSigner),
+    Ephemeral(Box<Wallet>),
+}
+
+impl xrpl::signer::RawSigner for ResolvedSigner {
+    fn public_key(&self) -> &str {
+        match self {
+            ResolvedSigner::Stored(signer) => signer.public_key(),
+            ResolvedSigner::Ephemeral(wallet) => wallet.public_key(),
+        }
+    }
+
+    fn algorithm(&self) -> xrpl::constants::CryptoAlgorithm {
+        match self {
+            ResolvedSigner::Stored(signer) => signer.algorithm(),
+            ResolvedSigner::Ephemeral(wallet) => wallet.algorithm(),
+        }
+    }
+
+    fn classic_address(&self) -> xrpl::signer::XRPLSignerResult<String> {
+        match self {
+            ResolvedSigner::Stored(signer) => signer.classic_address(),
+            ResolvedSigner::Ephemeral(wallet) => wallet.classic_address(),
+        }
+    }
+
+    fn sign(
+        &self,
+        domain: xrpl::signer::SigningDomain<'_>,
+        payload: &[u8],
+    ) -> xrpl::signer::XRPLSignerResult<xrpl::signer::SignOutcome> {
+        match self {
+            ResolvedSigner::Stored(signer) => signer.sign(domain, payload),
+            ResolvedSigner::Ephemeral(wallet) => wallet.sign(domain, payload),
+        }
+    }
+}
+
 impl SigningArgs {
+    /// Which key ids were named, if any.
+    pub fn key_ids(&self) -> &[String] {
+        &self.sign_with
+    }
+
+    /// Resolve whatever is going to sign.
+    ///
+    /// A recorded key wins when one is named; otherwise the seed ladder. The
+    /// unlock happens here, before any runtime is entered and before the first
+    /// transaction is read, so a prompt can never sit inside a `block_on` and a
+    /// stream never asks twice.
+    pub fn signer(&self) -> Result<ResolvedSigner, Error> {
+        match self.sign_with.as_slice() {
+            [] => Ok(ResolvedSigner::Ephemeral(Box::new(self.resolve()?))),
+            [id] => {
+                let store = crate::store::Store::from_env()?;
+                Ok(ResolvedSigner::Stored(crate::signer::StoredSigner::unlock(
+                    &store, id,
+                )?))
+            }
+            _ => Err(Error::other(
+                "--sign-with was given more than once, which means a multisigned \
+                 transaction: use `tx sign --multisign` once per key",
+            )),
+        }
+    }
+
     /// Resolve a seed and build the wallet it derives.
     ///
     /// The parsed seed is zeroized before returning, whichever rung produced it.
@@ -96,10 +167,6 @@ impl SigningArgs {
     /// encoding means the seed exists as a `String` for as long as it takes to
     /// derive a key.
     pub fn resolve(&self) -> Result<Wallet, Error> {
-        if !self.sign_with.is_empty() {
-            return Err(SignerError::BackendNotEnabled("key records").into());
-        }
-
         if self.algorithm.is_some() {
             return Err(Error::other(
                 "--algorithm is reserved: the seed's own prefix decides the curve today",
@@ -135,7 +202,7 @@ impl SigningArgs {
 }
 
 /// Read the first line of a seed file, refusing one others can read.
-fn read_seed_file(path: &Path) -> Result<String, Error> {
+pub(crate) fn read_seed_file(path: &Path) -> Result<String, Error> {
     reject_if_group_or_world_readable(path)?;
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         // A 0600 file in a 0755 directory is still a file anyone can find; the
@@ -304,7 +371,23 @@ mod tests {
     }
 
     #[test]
-    fn test_sign_with_is_reserved_and_says_so() {
+    fn test_two_keys_means_multisign_and_says_so() {
+        let args = SigningArgs {
+            seed_file: None,
+            seed_env: None,
+            seed: None,
+            sign_with: vec!["alice".into(), "bob".into()],
+            algorithm: None,
+        };
+
+        // Two keys is a multisigned transaction, which is the multisign stage
+        // run twice — not one signer with two keys.
+        let message = args.signer().err().expect("should refuse").to_string();
+        assert!(message.contains("--multisign"), "{message}");
+    }
+
+    #[test]
+    fn test_key_ids_are_reported() {
         let args = SigningArgs {
             seed_file: None,
             seed_env: None,
@@ -313,7 +396,6 @@ mod tests {
             algorithm: None,
         };
 
-        let message = args.resolve().unwrap_err().to_string();
-        assert!(message.contains("key records"), "{message}");
+        assert_eq!(args.key_ids(), ["alice"]);
     }
 }

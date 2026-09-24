@@ -9,6 +9,9 @@
 //! change to any of these verbs.
 
 pub mod add;
+pub mod enrol;
+pub mod export;
+pub mod generate;
 pub mod ls;
 pub mod rm;
 pub mod show;
@@ -19,6 +22,10 @@ use crate::error::Error;
 pub enum Cmd {
     /// Record a key (local record, no network)
     Add(add::Cmd),
+    /// Generate a key and enrol it (local record, no network)
+    Generate(generate::Cmd),
+    /// Print a key's seed (local record, no network)
+    Export(export::Cmd),
     /// List key records (local records, no network)
     Ls(ls::Cmd),
     /// Show one key record (local record, no network)
@@ -31,6 +38,8 @@ impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
         match self {
             Cmd::Add(cmd) => cmd.run(),
+            Cmd::Generate(cmd) => cmd.run(),
+            Cmd::Export(cmd) => cmd.run(),
             Cmd::Ls(cmd) => cmd.run(),
             Cmd::Show(cmd) => cmd.run(),
             Cmd::Rm(cmd) => cmd.run(),
