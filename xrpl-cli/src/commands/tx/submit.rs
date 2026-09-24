@@ -123,6 +123,17 @@ impl Cmd {
             .to_string();
 
         if !self.wait {
+            // An inner transaction's result does not exist until the batch is
+            // in a validated ledger, so there is nothing to report yet — and
+            // the outer's `tesSUCCESS` says nothing about whether the inners
+            // applied. Silence here would read as "all of them worked".
+            if transaction["TransactionType"] == "Batch" {
+                output::warn(
+                    "this is a Batch and --wait was not given, so its inner transactions are \
+                     not reported. The outer result is tesSUCCESS whether or not they applied.",
+                );
+            }
+
             output::artifact(&result)?;
             return classify(&engine_result);
         }

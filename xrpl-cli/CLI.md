@@ -520,6 +520,7 @@ Options:
 - `--seed-file <PATH>` — Path to a file whose first line is a seed
 - `--sign-with <KEY_ID>` — Sign with a recorded key, by id (repeatable)
 - `--multisign` — Add a signature to `Signers` instead of signing the transaction outright
+- `-y, --yes` — Sign a stream without confirming what is in it
 
 ## `xrpl tx merge`
 
