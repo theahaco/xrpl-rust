@@ -41,6 +41,16 @@ pub struct Cmd {
     #[arg(long, conflicts_with = "sequence")]
     pub no_sequence: bool,
 
+    /// Scale the fee for a multisigned transaction with this many signers.
+    ///
+    /// A transaction carrying N `Signer` entries must pay `(N + 1) ×` the
+    /// reference fee. This is committed *before* any signature exists, because
+    /// `Fee` is a signing field and XRPL has no fee-bump wrapper — so getting N
+    /// wrong means `telINSUF_FEE_P`, or an overpayment, and a full re-collection
+    /// of the quorum either way.
+    #[arg(long, conflicts_with = "fee")]
+    pub signers: Option<u32>,
+
     /// Leave `LastLedgerSequence` absent.
     ///
     /// The transaction then never expires, which is what a multisig collection
@@ -83,9 +93,10 @@ impl Cmd {
             .ok_or_else(|| Error::other("expected a transaction object"))?;
 
         if !object.contains_key("Fee") {
-            let fee = match &self.fee {
-                Some(fee) => fee.clone(),
-                None => open_ledger_fee(node).await?,
+            let fee = match (&self.fee, self.signers) {
+                (Some(fee), _) => fee.clone(),
+                (None, Some(signers)) => multisign_fee(node, signers).await?,
+                (None, None) => open_ledger_fee(node).await?,
             };
             object.insert("Fee".into(), Value::String(fee));
         }
@@ -143,6 +154,32 @@ async fn open_ledger_fee(node: &AsyncJsonRpcClient) -> Result<String, Error> {
         .as_str()
         .map(str::to_string)
         .ok_or_else(|| Error::other("node did not report an open ledger fee"))
+}
+
+/// The fee a multisigned transaction with `signers` entries must pay.
+///
+/// Built on the *reference* fee rather than the open-ledger fee. A proposal
+/// that has to sit while a quorum is collected should queue if the network is
+/// busy, not be priced for a ledger that closed long before the last signature
+/// arrived.
+async fn multisign_fee(node: &AsyncJsonRpcClient, signers: u32) -> Result<String, Error> {
+    let response = node
+        .request(
+            GenericRequest::builder("fee")
+                .params(serde_json::Map::new())
+                .build()
+                .into(),
+        )
+        .await
+        .map_err(Error::Client)?;
+
+    let reference: u64 = client::result_value(&response)?["drops"]["base_fee"]
+        .as_str()
+        .ok_or_else(|| Error::other("node did not report a reference fee"))?
+        .parse()
+        .map_err(|_| Error::other("node reported a reference fee that is not a number"))?;
+
+    Ok((reference * (u64::from(signers) + 1)).to_string())
 }
 
 async fn account_sequence(node: &AsyncJsonRpcClient, account: &str) -> Result<u32, Error> {

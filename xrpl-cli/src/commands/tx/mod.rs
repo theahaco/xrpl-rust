@@ -27,9 +27,11 @@ pub mod digest;
 pub mod fields;
 pub mod hash;
 pub mod io;
+pub mod merge;
 pub mod mpt_issuance_id;
 pub mod new;
 pub mod sign;
+pub mod signers;
 pub mod submit;
 pub mod txdef;
 pub mod value;
@@ -45,6 +47,8 @@ pub enum Cmd {
     Autofill(autofill::Cmd),
     /// Sign a transaction (OFFLINE)
     Sign(sign::Cmd),
+    /// Combine independently signed copies of one transaction (OFFLINE)
+    Merge(merge::Cmd),
     /// Encode and submit a transaction
     Submit(submit::Cmd),
     /// Print the transaction ID (OFFLINE, signed only)
@@ -67,6 +71,7 @@ impl Cmd {
             Cmd::New(cmd) => cmd.run(),
             Cmd::Autofill(cmd) => cmd.run(),
             Cmd::Sign(cmd) => cmd.run(),
+            Cmd::Merge(cmd) => cmd.run(),
             Cmd::Submit(cmd) => cmd.run(),
             Cmd::Hash(cmd) => cmd.run(),
             Cmd::Digest(cmd) => cmd.run(),
