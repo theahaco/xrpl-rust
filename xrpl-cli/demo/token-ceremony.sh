@@ -55,6 +55,13 @@ STATE="$XRPL_DATA_DIR/ceremony"
 mkdir -p "$STATE"
 
 say()  { printf '\n\033[1m== %s\033[0m\n' "$*" >&2; }
+# Stages are not replayable: `setup_issuer` signs with a master key that
+# `hand_over_to_quorum` then disables, so running it twice over one state
+# directory fails with `tefMASTER_DISABLED` — a confusing way to learn that the
+# first run got further than you thought. A marker per stage makes a second run
+# resume instead.
+done_with() { [[ -f "$STATE/$1.done" ]]; }
+mark_done() { : > "$STATE/$1.done"; }
 note() { printf '   %s\n' "$*" >&2; }
 
 # ---------------------------------------------------------------------------
@@ -253,6 +260,13 @@ setup_issuer() {
   say "issuer"
   ISSUER=$(make_identity issuer)
   note "issuer $ISSUER"
+
+  if done_with setup_issuer; then
+    MPT=$(cat "$STATE/mpt.id")
+    note "already set up; issuance $MPT"
+    return
+  fi
+
   fund "$ISSUER"
   close_ledger
 
@@ -282,12 +296,19 @@ JSON
   note "issuance $MPT"
 
   hand_over_to_quorum issuer
+  mark_done setup_issuer
 }
 
 setup_governance() {
   say "governance"
   GOVERNANCE=$(make_identity governance)
   note "governance $GOVERNANCE"
+
+  if done_with setup_governance; then
+    note "already set up"
+    return
+  fi
+
   fund "$GOVERNANCE"
   close_ledger
 
@@ -298,10 +319,16 @@ setup_governance() {
   close_ledger
 
   hand_over_to_quorum governance
+  mark_done setup_governance
 }
 
 mint() {
   say "mint: 2-of-3 multisigned, collected serially"
+
+  if done_with mint; then
+    note "already minted"
+    return
+  fi
 
   multisign_serial "$STATE/mint.json" payment \
     --account "$ISSUER" \
@@ -311,6 +338,7 @@ mint() {
 
   submit_collected "$STATE/mint.json" | jq -r '"   result: " + .meta.TransactionResult' >&2
   close_ledger
+  mark_done mint
 }
 
 redistribute() {
@@ -318,6 +346,12 @@ redistribute() {
 
   RECIPIENT=$(make_identity recipient)
   note "recipient $RECIPIENT"
+
+  if done_with redistribute; then
+    note "already redistributed"
+    return
+  fi
+
   fund "$RECIPIENT"
   close_ledger
 
@@ -338,6 +372,7 @@ redistribute() {
 
   submit_collected "$STATE/redistribute.json" | jq -r '"   result: " + .meta.TransactionResult' >&2
   close_ledger
+  mark_done redistribute
 }
 
 status() {
@@ -393,6 +428,13 @@ check_exit_codes() {
   "$XRPL" account show no-such-account >/dev/null 2>&1
   code=$?; [[ $code -eq 4 ]] || { echo "missing record should exit 4, got $code" >&2; exit 1; }
   note "4 configuration not found"
+
+  # No controlling terminal here, and `tx edit` needs one. This is the only
+  # exit code that is reached by *not* being able to ask a human something.
+  "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
+    | "$XRPL" tx edit >/dev/null 2>&1
+  code=$?; [[ $code -eq 5 ]] || { echo "no terminal to prompt on should exit 5, got $code" >&2; exit 1; }
+  note "5 declined, or nothing to ask on"
 
   "$XRPL" key add watcher-only --public-key "$("$XRPL" key show issuer --json | jq -r .public_key)" >/dev/null 2>&1
   "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \

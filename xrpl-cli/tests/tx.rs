@@ -678,3 +678,263 @@ fn test_the_generated_surface_round_trips_through_the_ledger() {
     // The memo sugar produced the array shape the ledger accepted.
     assert!(result["Memos"].as_array().is_some_and(|m| m.len() == 1));
 }
+
+/// Build, autofill, sign with the genesis seed, and submit.
+///
+/// Returns the submitted output rather than asserting on it: the point of the
+/// tests below is what the *failing* submissions say.
+fn genesis_pipeline(env: &TestEnv, seed: &std::path::Path, new: &[&str]) -> common::CliOutput {
+    let built = env.run(new);
+    built.assert_success();
+
+    let filled = env.run_with_stdin(
+        &["tx", "autofill", "--url", STANDALONE_URL],
+        built.stdout.as_bytes(),
+    );
+    filled.assert_success();
+
+    let signed = env.run_with_stdin(
+        &["tx", "sign", "--seed-file", seed.to_str().unwrap()],
+        filled.stdout.as_bytes(),
+    );
+    signed.assert_success();
+
+    env.run_with_stdin(
+        &[
+            "tx",
+            "submit",
+            "--wait",
+            "--accept-ledger",
+            "--url",
+            STANDALONE_URL,
+        ],
+        signed.stdout.as_bytes(),
+    )
+}
+
+/// Generate an account through the CLI and fund it from genesis.
+///
+/// Returns its address and a 0600 seed file, so it can sign for itself. The
+/// `fund_from_genesis` helper returns a `Wallet`, whose seed is a zeroizing
+/// type with no way to read it back out.
+fn new_funded_account(env: &TestEnv, genesis_seed: &std::path::Path) -> (String, PathBuf) {
+    let generated = env.run(&["wallet", "generate", "--show-secret"]);
+    generated.assert_success();
+
+    let value = generated.stdout_json();
+    let address = value["classic_address"]
+        .as_str()
+        .expect("address")
+        .to_string();
+
+    let path = env.path().join("keys").join(format!("{address}.seed"));
+    let mut file = std::fs::File::create(&path).expect("create seed file");
+    writeln!(file, "{}", value["seed"].as_str().expect("seed")).expect("write seed");
+    drop(file);
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).expect("chmod");
+    }
+
+    genesis_pipeline(
+        env,
+        genesis_seed,
+        &[
+            "tx",
+            "new",
+            "payment",
+            "--account",
+            GENESIS_ADDRESS,
+            "--destination",
+            &address,
+            "--amount",
+            "50000000",
+        ],
+    )
+    .assert_success();
+
+    (address, path)
+}
+
+#[test]
+fn test_an_mpt_payment_to_an_unauthorized_holder_is_warned_about_first() {
+    let env = TestEnv::new();
+    require_standalone!(&env);
+    let _guard = common::blockchain_lock();
+
+    let seed = seed_file(&env);
+
+    // An MPT genesis can transfer, so nothing but the missing MPToken can be
+    // the reason the payment below fails.
+    let created = genesis_pipeline(
+        &env,
+        &seed,
+        &[
+            "tx",
+            "new",
+            "mptoken-issuance-create",
+            "--account",
+            GENESIS_ADDRESS,
+            "--flag",
+            "tfMPTCanTransfer",
+            "--maximum-amount",
+            "1000000",
+        ],
+    );
+    created.assert_success();
+
+    let sequence = created.stdout_json()["Sequence"]
+        .as_u64()
+        .expect("the issuance carries a sequence");
+
+    let derived = env.run(&[
+        "tx",
+        "mpt-issuance-id",
+        "--account",
+        GENESIS_ADDRESS,
+        "--sequence",
+        &sequence.to_string(),
+    ]);
+    derived.assert_success();
+    let issuance = derived.stdout.trim().trim_matches('"').to_string();
+
+    // A funded account that never ran MPTokenAuthorize — which is exactly the
+    // state `redistribute.ts` left its destination in.
+    let (holder, _) = new_funded_account(&env, &seed);
+
+    let submitted = genesis_pipeline(
+        &env,
+        &seed,
+        &[
+            "tx",
+            "new",
+            "payment",
+            "--account",
+            GENESIS_ADDRESS,
+            "--destination",
+            &holder,
+            "--amount",
+            &format!(r#"{{"mpt_issuance_id":"{issuance}","value":"10"}}"#),
+        ],
+    );
+
+    // The warning is the point: it is printed before the submission, so a
+    // 2-of-3 ceremony is not spent on a transaction that cannot apply.
+    submitted.assert_stderr_contains("holds no MPToken");
+    submitted.assert_stderr_contains(&holder);
+    submitted.assert_stderr_contains("MPTokenAuthorize");
+
+    // And it stays a warning. The node remains the authority on whether a
+    // transaction applies, so the failure is still the ledger's.
+    submitted.assert_code(3);
+    submitted.assert_stderr_contains("tecNO_AUTH");
+}
+
+#[test]
+fn test_an_authorized_holder_draws_no_warning() {
+    let env = TestEnv::new();
+    require_standalone!(&env);
+    let _guard = common::blockchain_lock();
+
+    let seed = seed_file(&env);
+
+    let created = genesis_pipeline(
+        &env,
+        &seed,
+        &[
+            "tx",
+            "new",
+            "mptoken-issuance-create",
+            "--account",
+            GENESIS_ADDRESS,
+            "--flag",
+            "tfMPTCanTransfer",
+            "--maximum-amount",
+            "1000000",
+        ],
+    );
+    created.assert_success();
+
+    let sequence = created.stdout_json()["Sequence"]
+        .as_u64()
+        .expect("sequence");
+    let derived = env.run(&[
+        "tx",
+        "mpt-issuance-id",
+        "--account",
+        GENESIS_ADDRESS,
+        "--sequence",
+        &sequence.to_string(),
+    ]);
+    derived.assert_success();
+    let issuance = derived.stdout.trim().trim_matches('"').to_string();
+
+    // Generated through the CLI rather than `fund_from_genesis`, because this
+    // holder has to sign its own MPTokenAuthorize and `Wallet`'s seed is a
+    // zeroizing type with no way to read it back out.
+    let (holder, holder_seed) = new_funded_account(&env, &seed);
+
+    let authorized = {
+        let built = env.run(&[
+            "tx",
+            "new",
+            "mptoken-authorize",
+            "--account",
+            &holder,
+            "--mptoken-issuance-id",
+            &issuance,
+        ]);
+        built.assert_success();
+
+        let filled = env.run_with_stdin(
+            &["tx", "autofill", "--url", STANDALONE_URL],
+            built.stdout.as_bytes(),
+        );
+        filled.assert_success();
+
+        let signed = env.run_with_stdin(
+            &["tx", "sign", "--seed-file", holder_seed.to_str().unwrap()],
+            filled.stdout.as_bytes(),
+        );
+        signed.assert_success();
+
+        env.run_with_stdin(
+            &[
+                "tx",
+                "submit",
+                "--wait",
+                "--accept-ledger",
+                "--url",
+                STANDALONE_URL,
+            ],
+            signed.stdout.as_bytes(),
+        )
+    };
+    authorized.assert_success();
+
+    let submitted = genesis_pipeline(
+        &env,
+        &seed,
+        &[
+            "tx",
+            "new",
+            "payment",
+            "--account",
+            GENESIS_ADDRESS,
+            "--destination",
+            &holder,
+            "--amount",
+            &format!(r#"{{"mpt_issuance_id":"{issuance}","value":"10"}}"#),
+        ],
+    );
+
+    submitted.assert_success();
+    // A warning on the happy path is a warning people learn to skip.
+    assert!(
+        !submitted.stderr.contains("holds no MPToken"),
+        "stderr: {}",
+        submitted.stderr
+    );
+}

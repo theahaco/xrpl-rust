@@ -71,7 +71,7 @@ fn read_stdin() -> Result<String, Error> {
 ///
 /// Tolerates a single pretty-printed object too, because a human pasting one in
 /// by hand is a normal thing to do and failing on it teaches nothing.
-fn parse_stream(raw: &str) -> Result<Vec<Value>, Error> {
+pub fn parse_stream(raw: &str) -> Result<Vec<Value>, Error> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
         return Err(Error::other("no transaction provided: input was empty"));
