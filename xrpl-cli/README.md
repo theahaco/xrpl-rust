@@ -3,7 +3,8 @@
 Command line interface for the XRP Ledger, built on [`xrpl-rust`](https://crates.io/crates/xrpl-rust).
 
 ```bash
-cargo install xrpl-cli
+# From a checkout of this repository:
+cargo install --path xrpl-cli --bin xrpl
 xrpl --help
 ```
 
@@ -18,6 +19,49 @@ xrpl server subscribe --network local     # ws://127.0.0.1:6006
 ```
 
 `--network` accepts `mainnet`, `testnet`, `devnet` and `local`. `--url` wins when both are given.
+
+## Fund an account on Testnet
+
+Create and enroll the key, record the account, then request test XRP:
+
+```sh
+xrpl key generate alice
+xrpl account add alice --key alice
+xrpl account fund alice --network testnet
+xrpl account info --account alice --network testnet
+```
+
+`account fund` accepts a saved alias or a literal classic address, including a
+watch-only account. It never generates or unlocks a key and writes no local
+records. Use `--network devnet` for Devnet. The faucet determines the amount.
+An explicit `--network` or `--url` is required; `XRPL_NETWORK` is not used, and
+the named `mainnet` network has no test-XRP faucet.
+
+The command sends one funding request and waits for the account's **validated
+balance to increase**. A faucet HTTP acknowledgement alone is not success.
+The JSON result contains `account`, `previous_balance` and `balance` (drops as
+strings), `ledger_index`, `validated`, and `funded`. `--json` makes it compact;
+`-q` suppresses notes without suppressing the result. Concurrent account activity
+can affect the observed balance; this confirms an increase, not a particular
+faucet transaction hash.
+
+`--timeout` bounds the whole operation, including HTTP requests, to 60 seconds
+by default. Faucet rejection, node errors and an unconfirmed timeout exit 2.
+A timeout or lost response does not prove that funding failed: check the account
+on the same network before requesting again. The CLI never retries the faucet
+POST automatically.
+
+For a custom faucet, provide its full funding URL:
+
+```sh
+xrpl account fund alice --url http://127.0.0.1:5005 \
+    --faucet-url http://127.0.0.1:8000/accounts --timeout 30
+```
+
+This requires a separately running faucet service. A standalone node has no
+built-in faucet; the token ceremony funds accounts with a Payment from genesis.
+The deprecated `wallet faucet` creates a different wallet and does not enroll
+its key; use `account fund` for an account you have already recorded.
 
 ## The `tx` pipeline
 
@@ -81,6 +125,7 @@ seed anywhere in `argv`:
 ```sh
 xrpl key generate issuer --show-secret        # the 16-byte seed IS the backup
 xrpl account add issuer --key issuer --network-id 0
+xrpl account fund issuer --network testnet
 
 xrpl tx new Payment --account issuer --field Destination=rDEST… --field Amount=1 \
   | xrpl tx autofill --network testnet \
@@ -136,7 +181,7 @@ Credential Manager, or the Secret Service — so it is not on the filesystem at
 all, and not in a dotfiles sync or a backup of the home directory.
 
 ```bash
-cargo install --path xrpl-cli --features secure-store
+cargo install --path xrpl-cli --bin xrpl --features secure-store
 xrpl key generate issuer --secure-store
 ```
 
@@ -251,7 +296,7 @@ One module per command, grouped by domain:
 src/commands/
   global.rs            --url / --network, shared defaults
   tx/                  new, autofill, sign, multisign, merge, submit, hash, digest, blob, decode, …
-  account/             add, ls, show, rm, use, doctor  +  info, tx, objects, channels, currencies, lines, nfts
+  account/             add, ls, show, rm, use, doctor, fund  +  info, tx, objects, channels, currencies, lines, nfts
   key/                 add, generate, enrol, export, ls, show, rm
   wallet/              generate, from-seed, faucet, validate
   server/              fee, info, subscribe
