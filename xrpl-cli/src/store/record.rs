@@ -232,7 +232,7 @@ impl AccountRecord {
             ))
             .into()),
             _ => Err(Error::other(
-                "this account has several keys and no default; name one with --sign-with",
+                "this account has several keys and no default; name one with --key",
             )),
         }
     }
@@ -343,7 +343,7 @@ mod tests {
         record.keys = vec!["master".into(), "regular".into()];
 
         let message = record.signer_key(None).unwrap_err().to_string();
-        assert!(message.contains("--sign-with"), "{message}");
+        assert!(message.contains("--key"), "{message}");
     }
 
     #[test]

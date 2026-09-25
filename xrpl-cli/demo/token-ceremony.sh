@@ -111,7 +111,7 @@ submit_single() {
 
   "$XRPL" tx new "$@" \
     | "$XRPL" tx autofill --url "$URL" \
-    | "$XRPL" tx sign --sign-with "$key" \
+    | "$XRPL" tx sign --key "$key" \
     | submit
 }
 
@@ -227,8 +227,8 @@ multisign_serial() {
 
   "$XRPL" tx new "$@" \
     | "$XRPL" tx autofill --url "$URL" --signers 2 --no-last-ledger-sequence \
-    | "$XRPL" tx sign --multisign --sign-with signer-1 \
-    | "$XRPL" tx sign --multisign --sign-with signer-2 \
+    | "$XRPL" tx sign --multisign --key signer-1 \
+    | "$XRPL" tx sign --multisign --key signer-2 \
     > "$out"
 }
 
@@ -249,8 +249,8 @@ multisign_parallel() {
   # signer's own AccountID is part of the bytes.
   note "digest for signer-1: $("$XRPL" tx digest --as-signer "$S1" "$STATE/prepared.json" | tr -d '"' | head -c 40)…"
 
-  "$XRPL" tx sign --multisign --sign-with signer-1 "$STATE/prepared.json" > "$STATE/sig-1.json"
-  "$XRPL" tx sign --multisign --sign-with signer-3 "$STATE/prepared.json" > "$STATE/sig-3.json"
+  "$XRPL" tx sign --multisign --key signer-1 "$STATE/prepared.json" > "$STATE/sig-1.json"
+  "$XRPL" tx sign --multisign --key signer-3 "$STATE/prepared.json" > "$STATE/sig-3.json"
 
   "$XRPL" tx merge "$STATE/sig-1.json" "$STATE/sig-3.json" > "$out"
 }
@@ -401,7 +401,7 @@ node_takes_a_batch() {
   } | "$XRPL" tx autofill --quiet --url "$URL" --sequence-from-auto --no-last-ledger-sequence \
     | "$XRPL" tx batch wrap --quiet --account genesis --flag tfAllOrNothing \
         --sequence 1 --base-fee "$base_fee" \
-    | "$XRPL" tx sign --quiet --sign-with genesis \
+    | "$XRPL" tx sign --quiet --key genesis \
     > "$probe"
 
   # The exit status is not the answer — the probe fails either way. A node that
@@ -442,7 +442,7 @@ batch() {
   { "$XRPL" tx new payment --account "$GENESIS_ADDRESS" --destination "$B1" --amount 500000000
     "$XRPL" tx new payment --account "$GENESIS_ADDRESS" --destination "$B2" --amount 500000000
   } | "$XRPL" tx autofill --url "$URL" --sequence-from-auto \
-    | "$XRPL" tx sign --sign-with genesis \
+    | "$XRPL" tx sign --key genesis \
     | submit \
     | jq -r '"   sequence \(.Sequence) funded \(.Destination): \(.meta.TransactionResult)"' >&2
   close_ledger
@@ -479,8 +479,8 @@ batch() {
   { "$XRPL" tx new payment --account "$GOVERNANCE" --destination "$RECIPIENT" --amount "100/$MPT"
     "$XRPL" tx new payment --account "$GOVERNANCE" --destination "$RECIPIENT" --amount "200/$MPT"
   } | "$XRPL" tx autofill --url "$URL" --tickets "$first:$second" --signers 2 --no-last-ledger-sequence \
-    | "$XRPL" tx sign --multisign --sign-with signer-1 \
-    | "$XRPL" tx sign --multisign --sign-with signer-2 \
+    | "$XRPL" tx sign --multisign --key signer-1 \
+    | "$XRPL" tx sign --multisign --key signer-2 \
     > "$STATE/ticketed.json"
 
   jq -sc 'reverse[]' "$STATE/ticketed.json" \
@@ -518,7 +518,7 @@ batch() {
   } | "$XRPL" tx autofill --url "$URL" --sequence-from-auto --no-last-ledger-sequence \
     | "$XRPL" tx batch wrap --account batch-1 --flag tfAllOrNothing \
         --sequence "$sequence" --base-fee "$base_fee" \
-    | "$XRPL" tx sign --sign-with batch-1 \
+    | "$XRPL" tx sign --key batch-1 \
     | submit \
     | jq -r 'if .index != null then "   inner \(.index): \(.result)" else "   batch: \(.meta.TransactionResult)" end' >&2
   close_ledger
@@ -590,7 +590,7 @@ check_exit_codes() {
   "$XRPL" key add watcher-only --public-key "$("$XRPL" key show issuer --public-key)" >/dev/null 2>&1
   { "$XRPL" tx new payment --account "$ISSUER" --destination "$GOVERNANCE" --amount 1 \
         --field Fee=12 --field Sequence=1 \
-      | "$XRPL" tx sign --sign-with watcher-only; } >/dev/null 2>&1
+      | "$XRPL" tx sign --key watcher-only; } >/dev/null 2>&1
   code=$?; [[ $code -eq 6 ]] || { echo "unusable signer should exit 6, got $code" >&2; exit 1; }
   note "6 signer unavailable"
 

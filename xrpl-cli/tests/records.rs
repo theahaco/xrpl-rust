@@ -655,13 +655,13 @@ fn test_an_ambiguous_default_signer_names_a_remedy_this_command_has() {
     ])
     .assert_success();
 
-    // `AccountRecord::signer_key` answers this case by naming `--sign-with`,
+    // `AccountRecord::signer_key` answers this case by naming `--key`,
     // which `tx sign` has and this command does not, so following the advice
     // from here is a dead end.
     let output = env.run(&["account", "show", "alice", "--default-signer"]);
     output.assert_code(1);
     output.assert_stderr_contains("--force --default-signer");
-    assert!(!output.stderr.contains("--sign-with"), "{}", output.stderr);
+    assert!(!output.stderr.contains("--key"), "{}", output.stderr);
 
     // And the human block says so rather than omitting the line, which is the
     // record where a person most needs to be told to choose.

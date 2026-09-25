@@ -292,7 +292,7 @@ Record a key (local record, no network)
 
 Arguments:
 
-- `<ID>` — What to call this key. You choose the name; `--sign-with` uses it
+- `<ID>` — What to call this key. You choose the name; `--key` uses it
 
 Options:
 
@@ -543,7 +543,7 @@ Arguments:
 Options:
 
 - `--seed-file <PATH>` — Path to a file whose first line is a seed
-- `--sign-with <KEY_ID>` — Sign with a recorded key, by id (repeatable)
+- `-k, --key <KEY_ID>` — Sign with a recorded key, by id
 - `--multisign` — Add a signature to `Signers` instead of signing the transaction outright
 - `-y, --yes` — Sign a stream without confirming what is in it
 

@@ -210,7 +210,7 @@ fn test_signing_with_a_stored_key_needs_no_seed_in_argv() {
     filled.assert_success();
 
     let signed = env.run_with_stdin(
-        &["tx", "sign", "--sign-with", "genesis"],
+        &["tx", "sign", "--key", "genesis"],
         filled.stdout.as_bytes(),
     );
     signed.assert_success();
@@ -256,11 +256,8 @@ fn test_the_journal_records_the_signature_and_no_secret() {
     ]);
     built.assert_success();
 
-    env.run_with_stdin(
-        &["tx", "sign", "--sign-with", "genesis"],
-        built.stdout.as_bytes(),
-    )
-    .assert_success();
+    env.run_with_stdin(&["tx", "sign", "--key", "genesis"], built.stdout.as_bytes())
+        .assert_success();
 
     let journal = std::fs::read_to_string(env.data_dir().join("signing.log")).expect("read");
 
@@ -343,10 +340,7 @@ fn test_a_watch_only_key_cannot_sign() {
     ]);
     built.assert_success();
 
-    let output = env.run_with_stdin(
-        &["tx", "sign", "--sign-with", "watcher"],
-        built.stdout.as_bytes(),
-    );
+    let output = env.run_with_stdin(&["tx", "sign", "--key", "watcher"], built.stdout.as_bytes());
 
     output.assert_code(6);
     output.assert_stderr_contains("watch-only");

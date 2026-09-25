@@ -63,10 +63,10 @@ pub struct SigningArgs {
 
     /// Sign with a recorded key, by id.
     ///
-    /// Repeatable: passing it twice means "produce a multisigned transaction",
-    /// which is the same as running the signing stage once per key.
-    #[arg(long = "sign-with", value_name = "KEY_ID")]
-    pub sign_with: Vec<String>,
+    /// Otherwise use the transaction account's default or sole key. For
+    /// multisigning, choose one key per `tx sign --multisign` invocation.
+    #[arg(long, short = 'k', alias = "sign-with", value_name = "KEY_ID")]
+    pub key: Option<String>,
 
     /// Reserved: the seed's algorithm is what decides the curve today.
     #[arg(long, value_name = "ALGORITHM", hide = true)]
@@ -83,7 +83,7 @@ impl core::fmt::Debug for SigningArgs {
             .field("seed_file", &self.seed_file)
             .field("seed_env", &self.seed_env.as_ref().map(|_| "<redacted>"))
             .field("seed", &self.seed.as_ref().map(|_| "<redacted>"))
-            .field("sign_with", &self.sign_with)
+            .field("key", &self.key)
             .field("algorithm", &self.algorithm)
             .finish()
     }
@@ -133,31 +133,46 @@ impl xrpl::signer::RawSigner for ResolvedSigner {
 }
 
 impl SigningArgs {
-    /// Which key ids were named, if any.
-    pub fn key_ids(&self) -> &[String] {
-        &self.sign_with
-    }
-
     /// Resolve whatever is going to sign.
     ///
-    /// A recorded key wins when one is named; otherwise the seed ladder. The
-    /// unlock happens here, before any runtime is entered and before the first
-    /// transaction is read, so a prompt can never sit inside a `block_on` and a
-    /// stream never asks twice.
-    pub fn signer(&self) -> Result<ResolvedSigner, Error> {
-        match self.sign_with.as_slice() {
-            [] => Ok(ResolvedSigner::Ephemeral(Box::new(self.resolve()?))),
-            [id] => {
-                let store = crate::store::Store::from_env()?;
-                Ok(ResolvedSigner::Stored(crate::signer::StoredSigner::unlock(
-                    &store, id,
-                )?))
-            }
-            _ => Err(Error::other(
-                "--sign-with was given more than once, which means a multisigned \
-                 transaction: use `tx sign --multisign` once per key",
-            )),
+    /// Explicit keys win over seed sources, which win over account inference.
+    /// Unlock once for the entire stream, outside any async runtime. Explicit
+    /// ephemeral signing never opens the local store.
+    pub fn signer(
+        &self,
+        transactions: &[serde_json::Value],
+        multisign: bool,
+    ) -> Result<ResolvedSigner, Error> {
+        if let Some(id) = &self.key {
+            return Self::stored_signer(&crate::store::Store::from_env()?, id);
         }
+        if self.seed_file.is_some() || self.seed_env.is_some() || self.seed.is_some() {
+            return Ok(ResolvedSigner::Ephemeral(Box::new(self.resolve()?)));
+        }
+        if multisign {
+            return Err(Error::other(
+                "multisigning requires an explicit signer: use --key <KEY_ID> (-k) \
+                 or --seed-file <PATH>, once per signer",
+            ));
+        }
+
+        let store = crate::store::Store::from_env()?;
+        if let Some(id) = super::account::default_key(&store, transactions)? {
+            return Self::stored_signer(&store, &id);
+        }
+
+        // No matching account: preserve the ephemeral terminal prompt. A
+        // broken or ambiguous matching record is an error, never a fallback.
+        output::note(
+            "no saved account matches Account; use --key (-k), --seed-file, or enter a seed",
+        );
+        Ok(ResolvedSigner::Ephemeral(Box::new(self.resolve()?)))
+    }
+
+    fn stored_signer(store: &crate::store::Store, id: &str) -> Result<ResolvedSigner, Error> {
+        Ok(ResolvedSigner::Stored(crate::signer::StoredSigner::unlock(
+            store, id,
+        )?))
     }
 
     /// Resolve a seed and build the wallet it derives.
@@ -361,41 +376,12 @@ mod tests {
             seed_file: None,
             seed_env: Some("snoPBrXtMeMyMHUVTgbuqAfg1SUTb".into()),
             seed: Some("snoPBrXtMeMyMHUVTgbuqAfg1SUTb".into()),
-            sign_with: Vec::new(),
+            key: None,
             algorithm: None,
         };
 
         let rendered = format!("{args:?}");
         assert!(!rendered.contains("snoPBrXt"), "{rendered}");
         assert!(rendered.contains("redacted"), "{rendered}");
-    }
-
-    #[test]
-    fn test_two_keys_means_multisign_and_says_so() {
-        let args = SigningArgs {
-            seed_file: None,
-            seed_env: None,
-            seed: None,
-            sign_with: vec!["alice".into(), "bob".into()],
-            algorithm: None,
-        };
-
-        // Two keys is a multisigned transaction, which is the multisign stage
-        // run twice — not one signer with two keys.
-        let message = args.signer().err().expect("should refuse").to_string();
-        assert!(message.contains("--multisign"), "{message}");
-    }
-
-    #[test]
-    fn test_key_ids_are_reported() {
-        let args = SigningArgs {
-            seed_file: None,
-            seed_env: None,
-            seed: None,
-            sign_with: vec!["alice".into()],
-            algorithm: None,
-        };
-
-        assert_eq!(args.key_ids(), ["alice"]);
     }
 }

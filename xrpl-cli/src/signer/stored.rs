@@ -7,8 +7,8 @@
 //!
 //! # One unlock per invocation
 //!
-//! The signer is resolved and unlocked **once**, before the first transaction is
-//! read, and the same instance signs every line of a stream. A passphrase prompt
+//! The signer is resolved and unlocked **once**, after reading the transaction
+//! accounts, and the same instance signs every line of a stream. A passphrase prompt
 //! per transaction would make a stream unusable, and there is no session agent
 //! here to paper over it.
 //!
