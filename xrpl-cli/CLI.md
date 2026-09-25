@@ -37,9 +37,8 @@ Options:
 ```text
 Environment:
   XRPL_NETWORK      mainnet | testnet | devnet | local, for the query commands.
-                    Loses to --network and --url. The `tx` pipeline stages do
-                    not read it: a stage that picks a network on your behalf
-                    can pick mainnet.
+                    Loses to --network and --url. `account fund` and the `tx`
+                    pipeline stages require an explicit --network or --url.
   XRPL_SEED         a seed for one invocation. Loses to --seed-file.
   XRPL_PASSPHRASE   unlocks an enrolled key without a prompt. The non-interactive
                     path, because stdin carries the transaction.
@@ -66,6 +65,7 @@ Subcommands:
 - `rm` — Forget an account record (local record, no network)
 - `use` — Choose the default account (local record, no network)
 - `doctor` — Report what is wrong with a record (local; --ledger adds a node check)
+- `fund` — Fund an existing account from a test-network faucet (no keys required)
 - `info` — Get account info from the ledger (ledger query)
 - `tx` — Get account transactions (ledger query)
 - `objects` — Get account objects: trust lines, offers, signer lists (ledger query)
@@ -154,6 +154,22 @@ Options:
 - `-u, --url <URL>` — The XRPL node URL. Takes precedence over --network
 - `--network <NETWORK>` — A named network to use instead of spelling out --url (values: mainnet, testnet, devnet, local) (env: XRPL_NETWORK)
 - `--json` — Emit JSON
+
+## `xrpl account fund`
+
+Fund an existing account from a test-network faucet (no keys required)
+
+Arguments:
+
+- `<ALIAS_OR_ADDRESS>` — The existing account alias or classic r-address to fund
+
+Options:
+
+- `-u, --url <URL>` — The XRPL node URL. Takes precedence over --network
+- `--network <NETWORK>` — A named network to use instead of spelling out --url (values: mainnet, testnet, devnet, local)
+- `--faucet-url <URL>` — Override the faucet's HTTP endpoint (the full funding URL)
+- `--timeout <TIMEOUT>` — Maximum seconds for the request and validated balance increase (1–3600) (default: 60)
+- `--json` — Print one line of compact JSON instead of an indented document
 
 ## `xrpl account info`
 

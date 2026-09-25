@@ -21,9 +21,9 @@ use crate::output;
 /// nothing and cost everything.
 ///
 /// So it prints JSON, and the seed only under `--show-secret`, exactly as
-/// `key generate` does. The supported path is `key generate` plus
-/// `account add`, which enrols the key encrypted at rest before anything is
-/// funded; the whole `wallet` group is deprecated in favour of it.
+/// `key generate` does. The supported path is `key generate`, `account add`,
+/// then `account fund`, which enrolls the key encrypted at rest before funding;
+/// the whole `wallet` group is deprecated in favour of it.
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
     /// Print the seed on stdout.
@@ -61,7 +61,7 @@ impl Cmd {
             output::warn(
                 "the seed was not printed, so this funded account is now unrecoverable. \
                  Re-run with --show-secret, or use `xrpl key generate` and \
-                 `xrpl account add`, which enrol the key encrypted at rest first.",
+                 `xrpl account add`, then `xrpl account fund` to enroll the key before funding.",
             );
         }
 

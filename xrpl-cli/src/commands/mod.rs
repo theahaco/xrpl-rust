@@ -25,9 +25,8 @@ use crate::error::Error;
 const ENVIRONMENT: &str = "\
 Environment:
   XRPL_NETWORK      mainnet | testnet | devnet | local, for the query commands.
-                    Loses to --network and --url. The `tx` pipeline stages do
-                    not read it: a stage that picks a network on your behalf
-                    can pick mainnet.
+                    Loses to --network and --url. `account fund` and the `tx`
+                    pipeline stages require an explicit --network or --url.
   XRPL_SEED         a seed for one invocation. Loses to --seed-file.
   XRPL_PASSPHRASE   unlocks an enrolled key without a prompt. The non-interactive
                     path, because stdin carries the transaction.

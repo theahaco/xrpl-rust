@@ -1,11 +1,8 @@
 //! `xrpl account` — everything addressed by an account.
 //!
-//! Every verb here is a **ledger query**: it reaches a node and reports what the
-//! ledger says. The account and key records that arrive with the local store are
-//! the other half of this group, and the distinction matters enough that each
-//! verb's help says which side it is on — `account show` reading a local record
-//! beside `account info` reading the ledger is a sharper trap than `xrpl tx`
-//! beside `xrpl account tx`.
+//! Local records sit beside ledger queries; each verb's help identifies which
+//! it operates on. `fund` requests test XRP for an existing public address and
+//! confirms it on the ledger, without accessing any signing key.
 //!
 //! Setting an account flag is `xrpl tx new AccountSet --set-flag <name>`, which
 //! goes through the same autofill, signing and submission as every other
@@ -15,6 +12,7 @@ pub mod add;
 pub mod channels;
 pub mod currencies;
 pub mod doctor;
+pub mod fund;
 pub mod info;
 pub mod lines;
 pub mod ls;
@@ -48,6 +46,9 @@ pub enum Cmd {
 
     /// Report what is wrong with a record (local; --ledger adds a node check)
     Doctor(doctor::Cmd),
+
+    /// Fund an existing account from a test-network faucet (no keys required)
+    Fund(fund::Cmd),
 
     // -- ledger queries ------------------------------------------------------
     /// Get account info from the ledger (ledger query)
@@ -85,6 +86,7 @@ impl Cmd {
             Cmd::Rm(cmd) => cmd.run(),
             Cmd::Use(cmd) => cmd.run(),
             Cmd::Doctor(cmd) => cmd.run(),
+            Cmd::Fund(cmd) => cmd.run(),
             Cmd::Info(cmd) => cmd.run(),
             Cmd::Tx(cmd) => cmd.run(),
             Cmd::Objects(cmd) => cmd.run(),

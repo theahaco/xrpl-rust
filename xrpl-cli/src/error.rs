@@ -63,6 +63,12 @@ pub enum Error {
     #[error("the node answered with {code}: {message}")]
     Node { code: String, message: String },
 
+    #[error("funding for {address} was not confirmed within {seconds}s; it may still arrive. Check `xrpl account info --account {address}` with the same --network/--url before requesting again")]
+    FundingTimeout { address: String, seconds: u64 },
+
+    #[error("the node returned an invalid or unvalidated account balance for {address}; funding is not confirmed")]
+    FundingResponse { address: String },
+
     #[error("{0}")]
     Other(String),
 }
@@ -138,7 +144,10 @@ impl Error {
             | Error::BatchSignerCount { .. }
             | Error::BatchInnerSequence { .. }
             | Error::BatchNetworkMismatch { .. } => exit::USAGE,
-            Error::Client(_) | Error::Node { .. } => exit::NETWORK,
+            Error::Client(_)
+            | Error::Node { .. }
+            | Error::FundingTimeout { .. }
+            | Error::FundingResponse { .. } => exit::NETWORK,
             Error::Wallet(_) | Error::Core(_) | Error::Io(_) | Error::Hex(_) | Error::Toml(_) => {
                 exit::USAGE
             }
