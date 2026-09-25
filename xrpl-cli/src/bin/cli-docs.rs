@@ -86,7 +86,8 @@ fn render(out: &mut String, command: &Command, path: &str) {
     if generated_elsewhere {
         out.push_str(
             "\nOne subcommand per transaction type, each with the fields that type\n\
-             accepts: see [TX_SURFACE.md](TX_SURFACE.md).\n",
+             accepts: see [TX_SURFACE.md](TX_SURFACE.md). Every AccountID field takes\n\
+             a literal address or the alias of a local account.\n",
         );
     }
 

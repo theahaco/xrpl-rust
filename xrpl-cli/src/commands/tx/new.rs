@@ -19,6 +19,7 @@ use serde_json::{Map, Value};
 
 use crate::commands::tx::{io, txdef, value, EMPTY_SIGNING_PUB_KEY};
 use crate::error::Error;
+use crate::store::{resolve, Store};
 
 /// Flags this command adds to every generated subcommand.
 const FLAGS_ARG: &str = "flags";
@@ -120,7 +121,7 @@ impl clap::Subcommand for Cmd {
                     Arg::new(SIGNER_ENTRY_ARG)
                         .long(SIGNER_ENTRY_ARG)
                         .alias("signer")
-                        .value_name("ADDRESS:WEIGHT")
+                        .value_name("ALIAS_OR_ADDRESS:WEIGHT")
                         .action(ArgAction::Append)
                         .help("Add a signer entry. Repeatable"),
                 );
@@ -135,7 +136,7 @@ impl clap::Subcommand for Cmd {
                         .alias(field.name)
                         .value_name(field.serialization_type)
                         .required(field.required)
-                        .help(format!("{} ({})", field.name, field.serialization_type)),
+                        .help(field_help(field)),
                 );
             }
 
@@ -186,10 +187,22 @@ impl clap::FromArgMatches for Cmd {
     }
 }
 
+/// One generated flag's help line. An address field says it takes an alias,
+/// because nothing else on the command line would tell anyone.
+fn field_help(field: &txdef::FieldDef) -> String {
+    if field.serialization_type == "AccountID" {
+        format!(
+            "{} (AccountID: an address, or a local account alias)",
+            field.name
+        )
+    } else {
+        format!("{} ({})", field.name, field.serialization_type)
+    }
+}
+
 /// Resolve `--account` through the store, applying the ladder and its guards.
-fn resolve_account(explicit: Option<&str>) -> Result<String, Error> {
-    let store = crate::store::Store::from_env()?;
-    Ok(crate::store::resolve::account(&store, explicit)?.address)
+fn resolve_account(store: &Store, explicit: Option<&str>) -> Result<String, Error> {
+    Ok(resolve::account(store, explicit)?.address)
 }
 
 /// Assemble the transaction JSON from what was typed.
@@ -200,16 +213,20 @@ fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Val
         Value::String(definition.name.to_string()),
     );
 
+    let store = Store::from_env()?;
+    // Every AccountID field — a destination, an issuer, a holder, a signer
+    // entry — takes an alias as well as an address. The lookup reads the
+    // record's address and nothing else, so a name still resolves as a value,
+    // never as authority: no key is chosen and nothing is unlocked.
+    let lookup = |field: &str, alias: &str| resolve::alias_address(&store, field, alias);
+
     for field in definition.generated_fields() {
         if let Some(raw) = matches.get_one::<String>(field.flag) {
-            // `Account` is the one field that resolves an alias. Every other
-            // address — a destination, an issuer, a signer entry — is literal,
-            // which is what keeps "names resolve as values, never as authority"
-            // true. It also never selects a key.
+            // `Account` alone also carries the ladder and its mainnet guard.
             let parsed = if field.name == "Account" {
-                Value::String(resolve_account(Some(raw))?)
+                Value::String(resolve_account(&store, Some(raw))?)
             } else {
-                value::parse(field.flag, field.serialization_type, raw)?
+                value::parse(field.flag, field.serialization_type, raw, &lookup)?
             };
 
             object.insert(field.name.to_string(), parsed);
@@ -219,7 +236,10 @@ fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Val
     // `Account` is required, so it is either given or inherited. The ladder and
     // both its guards live in one place rather than here.
     if !object.contains_key("Account") && definition.field("Account").is_some() {
-        object.insert("Account".into(), Value::String(resolve_account(None)?));
+        object.insert(
+            "Account".into(),
+            Value::String(resolve_account(&store, None)?),
+        );
     }
 
     if let Some(entries) = matches
@@ -230,7 +250,7 @@ fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Val
         let entries: Vec<String> = entries.cloned().collect();
         object.insert(
             "SignerEntries".into(),
-            value::parse_signer_entries(&entries)?,
+            value::parse_signer_entries(&entries, &lookup)?,
         );
     }
 
@@ -241,7 +261,7 @@ fn build(definition: &txdef::TransactionDef, matches: &ArgMatches) -> Result<Val
 
     apply_flags(definition, matches, &mut object)?;
     apply_account_set_flags(matches, &mut object)?;
-    apply_raw_fields(definition, matches, &mut object)?;
+    apply_raw_fields(definition, matches, &lookup, &mut object)?;
 
     // Always, and unconditionally: absent and "" are different bytes, and a
     // transaction that loses the empty key makes two signers sign two different
@@ -309,6 +329,7 @@ fn apply_account_set_flags(
 fn apply_raw_fields(
     definition: &txdef::TransactionDef,
     matches: &ArgMatches,
+    lookup: &value::Lookup,
     object: &mut Map<String, Value>,
 ) -> Result<(), Error> {
     let allow_unknown = matches.get_flag(ALLOW_UNKNOWN_ARG);
@@ -326,7 +347,7 @@ fn apply_raw_fields(
             Some(serialization_type) => {
                 object.insert(
                     name.to_string(),
-                    value::parse(name, serialization_type, raw)?,
+                    value::parse(name, serialization_type, raw, lookup)?,
                 );
             }
             None if allow_unknown => {
