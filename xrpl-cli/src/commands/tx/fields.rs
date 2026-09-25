@@ -96,7 +96,12 @@ pub fn render_markdown() -> String {
         "# `xrpl tx new` surface\n\n\
          Generated from the vendored `definitions.json`. Regenerate with\n\
          `cargo run -p xrpl-cli --bin tx-surface > xrpl-cli/TX_SURFACE.md`;\n\
-         CI fails if this file and the definitions disagree.\n\n",
+         CI fails if this file and the definitions disagree.\n\n\
+         An `AccountID` flag takes a literal address or the alias of a local\n\
+         account, and so does the address half of `--signer-entry`, the issuer in\n\
+         `--amount 100/USD/<issuer>`, and `--field <Name>=` for an AccountID field.\n\
+         A valid address is always taken literally; any other value must name an\n\
+         account record, and an unknown name is refused naming its flag.\n\n",
     );
 
     for definition in txdef::transactions() {

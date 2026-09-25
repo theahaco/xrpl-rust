@@ -4,6 +4,12 @@ Generated from the vendored `definitions.json`. Regenerate with
 `cargo run -p xrpl-cli --bin tx-surface > xrpl-cli/TX_SURFACE.md`;
 CI fails if this file and the definitions disagree.
 
+An `AccountID` flag takes a literal address or the alias of a local
+account, and so does the address half of `--signer-entry`, the issuer in
+`--amount 100/USD/<issuer>`, and `--field <Name>=` for an AccountID field.
+A valid address is always taken literally; any other value must name an
+account record, and an unknown name is refused naming its flag.
+
 ## AMMBid — `xrpl tx new amm-bid`
 
 | flag | type | required |

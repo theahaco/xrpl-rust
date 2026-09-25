@@ -709,3 +709,159 @@ fn test_force_will_not_repoint_an_alias_at_a_key_of_its_own() {
     shown.assert_success();
     assert_eq!(shown.stdout, format!("{DESTINATION}\n"));
 }
+
+/// Record `alice` and `bob` as watch-only accounts, returning bob's address.
+///
+/// No key at all: an address field resolves from the record's address, so a
+/// passing test also shows it never needs one.
+fn alice_and_bob(env: &TestEnv) -> String {
+    let (alice, _) = recorded_key(env, "alice-master");
+    env.run(&["account", "add", "alice", "--address", &alice])
+        .assert_success();
+
+    let generated = env.run(&["wallet", "generate"]);
+    generated.assert_success();
+    let bob = generated.stdout_json()["classic_address"]
+        .as_str()
+        .expect("address")
+        .to_string();
+    env.run(&["account", "add", "bob", "--address", &bob])
+        .assert_success();
+
+    bob
+}
+
+#[test]
+fn test_a_destination_alias_is_its_recorded_address() {
+    let env = TestEnv::new();
+    let bob = alice_and_bob(&env);
+
+    let output = assert_offline(
+        &env,
+        &[
+            "tx",
+            "new",
+            "payment",
+            "--account",
+            "alice",
+            "--destination",
+            "bob",
+            "--amount",
+            "10_000_000",
+        ],
+    );
+
+    assert_eq!(output.stdout_json()["Destination"], bob);
+}
+
+#[test]
+fn test_a_literal_destination_passes_through_unchanged() {
+    let env = TestEnv::new();
+    alice_and_bob(&env);
+
+    let output = assert_offline(
+        &env,
+        &[
+            "tx",
+            "new",
+            "payment",
+            "--account",
+            "alice",
+            "--destination",
+            DESTINATION,
+            "--amount",
+            "1",
+        ],
+    );
+
+    assert_eq!(output.stdout_json()["Destination"], DESTINATION);
+}
+
+#[test]
+fn test_an_unknown_destination_alias_exits_one_naming_the_field() {
+    let env = TestEnv::new();
+    alice_and_bob(&env);
+
+    let output = env.run(&[
+        "tx",
+        "new",
+        "payment",
+        "--account",
+        "alice",
+        "--destination",
+        "carol",
+        "--amount",
+        "1",
+    ]);
+
+    assert_eq!(output.code(), 1, "{}", output.stderr);
+    assert!(
+        output.stdout.is_empty(),
+        "nothing is emitted: {}",
+        output.stdout
+    );
+    assert!(output.stderr.contains("--destination"), "{}", output.stderr);
+    assert!(output.stderr.contains("\"carol\""), "{}", output.stderr);
+}
+
+#[test]
+fn test_a_holder_alias_resolves_too() {
+    let env = TestEnv::new();
+    let bob = alice_and_bob(&env);
+
+    let output = assert_offline(
+        &env,
+        &[
+            "tx",
+            "new",
+            "mptoken-issuance-set",
+            "--account",
+            "alice",
+            "--mptoken-issuance-id",
+            "00000123456789ABCDEF0123456789ABCDEF0123456789AB",
+            "--holder",
+            "bob",
+        ],
+    );
+
+    assert_eq!(output.stdout_json()["Holder"], bob);
+}
+
+#[test]
+fn test_signer_entries_and_raw_fields_resolve_aliases() {
+    let env = TestEnv::new();
+    let bob = alice_and_bob(&env);
+
+    let output = assert_offline(
+        &env,
+        &[
+            "tx",
+            "new",
+            "signer-list-set",
+            "--account",
+            "alice",
+            "--signer-quorum",
+            "1",
+            "--signer-entry",
+            "bob:1",
+        ],
+    );
+    assert_eq!(
+        output.stdout_json()["SignerEntries"][0]["SignerEntry"]["Account"],
+        bob
+    );
+
+    let output = assert_offline(
+        &env,
+        &[
+            "tx",
+            "new",
+            "set-regular-key",
+            "--account",
+            "alice",
+            "--field",
+            "RegularKey=bob",
+        ],
+    );
+    assert_eq!(output.stdout_json()["RegularKey"], bob);
+}

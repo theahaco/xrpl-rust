@@ -95,6 +95,22 @@ when the two legitimately differ — a regular key, or a key that is only a memb
 of someone else's signer list. One key is the default signer by being the only
 one, so `--default-signer` is for an account with several.
 
+Every other address `tx new` takes resolves a recorded alias too:
+`--destination`, `--issuer`, `--holder`, `--authorize`, `--regular-key`, every
+flag the definitions type as `AccountID`, the address half of `--signer-entry
+<alias>:<weight>`, the issuer in `--amount 100/USD/<issuer>`, and `--field
+<Name>=<alias>` for an AccountID field:
+
+```sh
+xrpl tx new Payment --account alice --destination bob --amount 10_000_000
+```
+
+A valid address is always taken literally, so no record can shadow one. Any
+other value must name an account record, and an unknown name exits 1 naming the
+flag, rather than reaching the ledger as a string. The lookup reads the record's
+address and nothing else — no key, no passphrase, no network — so `tx new` stays
+offline. Only `--account` falls back to `XRPL_ACCOUNT` and the config default.
+
 For a script, `key show` and `account show` answer one field at a time:
 `xrpl key show issuer --address`, `--public-key`, `--algorithm`, `--source`, and
 `xrpl account show issuer --address`, `--network-id`, `--tag`, `--keys`,

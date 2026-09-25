@@ -460,7 +460,8 @@ Subcommands:
 Build an unsigned transaction (OFFLINE)
 
 One subcommand per transaction type, each with the fields that type
-accepts: see [TX_SURFACE.md](TX_SURFACE.md).
+accepts: see [TX_SURFACE.md](TX_SURFACE.md). Every AccountID field takes
+a literal address or the alias of a local account.
 
 ## `xrpl tx autofill`
 

@@ -335,7 +335,7 @@ mint() {
 
   multisign_serial "$STATE/mint.json" payment \
     --account "$ISSUER" \
-    --destination "$GOVERNANCE" \
+    --destination governance \
     --amount "100000/$MPT" \
     --memo "mint-period=2026"
 
@@ -370,7 +370,7 @@ redistribute() {
 
   multisign_parallel "$STATE/redistribute.json" payment \
     --account "$GOVERNANCE" \
-    --destination "$RECIPIENT" \
+    --destination recipient \
     --amount "25000/$MPT"
 
   submit_collected "$STATE/redistribute.json" | jq -r '"   result: " + .meta.TransactionResult' >&2
