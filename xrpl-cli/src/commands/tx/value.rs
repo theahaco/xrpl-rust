@@ -117,8 +117,8 @@ fn parse_json(field: &str, raw: &str) -> Result<Value, Error> {
 /// Build a `SignerEntries` array from repeated `ADDRESS:WEIGHT` arguments.
 ///
 /// The canonical spelling is `--signer-entry`: an on-ledger `SignerEntry` and a
-/// local signing backend are different nouns, and `--signer` sitting one letter
-/// from `--sign-with` is a mistake waiting to be made.
+/// local signing key are different nouns. `tx sign --key` chooses a local key;
+/// this flag constructs an on-ledger signer list.
 pub fn parse_signer_entries(entries: &[String]) -> Result<Value, Error> {
     let mut array = Vec::with_capacity(entries.len());
 

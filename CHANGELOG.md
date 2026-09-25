@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `xrpl tx sign` accepts `--key` / `-k` (`--sign-with` remains a hidden alias) and, without an explicit key or seed, uses the transaction account's default or sole key. Account inference rejects ambiguous records, regular keys and mixed-account streams; multisigning still requires an explicit key or seed. Explicit ephemeral sources bypass account lookup, and an unrecorded account retains the terminal seed-prompt fallback.
+
 - **Breaking:** the CLI moved out of the library into its own `xrpl-cli` crate (binary still named `xrpl`). `cargo install xrpl-rust --features cli` becomes `cargo install xrpl-cli`; the `cli` feature and its `clap`/`bip39` dependencies are gone from `xrpl-rust`, so library consumers no longer build an argument parser by default (`cli` was in the default feature set). `xrpl::cli` is no longer part of the library API.
 - The CLI is now one module per command (`src/commands/<group>/<command>.rs`), each owning its `clap` arguments and a `run` method, with `client`/`output`/`error` modules replacing the free helpers that the old 680-line `execute_command` match shared.
 - Commands that reach a node accept `--network mainnet|testnet|devnet|local` alongside `--url`; `--url` wins when both are given and per-command defaults are unchanged (mainnet for queries, testnet for `wallet faucet`, the WebSocket endpoint for `server subscribe`). `-u` is now accepted as the short form of `--url` on every such command rather than only some.

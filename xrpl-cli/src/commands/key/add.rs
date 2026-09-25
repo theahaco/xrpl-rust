@@ -11,7 +11,7 @@ use crate::store::{KeyRecord, KeySource, Store};
 
 #[derive(Debug, Clone, clap::Args)]
 pub struct Cmd {
-    /// What to call this key. You choose the name; `--sign-with` uses it.
+    /// What to call this key. You choose the name; `--key` uses it.
     pub id: String,
 
     /// Record a public key only: it can be recognized, never used.

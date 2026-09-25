@@ -104,9 +104,9 @@ pub struct Wrap {
 
     /// Sign the batch pre-image with this recorded key. Repeatable.
     ///
-    /// A **batch** co-signer, which is not the same as `tx sign --sign-with`:
+    /// A **batch** co-signer, which is not the same as `tx sign --multisign --key`:
     /// these sign the `BCH\0` pre-image over the inner IDs and land in
-    /// `BatchSigners`, while `--sign-with` multisigns the outer transaction
+    /// `BatchSigners`, while `tx sign --multisign --key` multisigns the outer transaction
     /// itself and lands in `Signers`. Both can be present on one Batch.
     #[arg(long = "batch-sign-with", value_name = "KEY_ID")]
     pub batch_sign_with: Vec<String>,

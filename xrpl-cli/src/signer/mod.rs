@@ -14,6 +14,7 @@
 //! `tx` pipeline changes. [`registry`] is the one list of them, because the
 //! answer is not the same for every build.
 
+mod account;
 pub mod ephemeral;
 pub mod registry;
 pub mod stored;

@@ -119,8 +119,8 @@ read-only container and in CI.
 ### Or enrol the key once
 
 `key add` and `key generate` record a key under a name you choose and encrypt
-the seed under a passphrase. `tx sign --sign-with <name>` then signs without a
-seed anywhere in `argv`:
+the seed under a passphrase. `tx sign` can then use the account's default or
+sole key without naming it again:
 
 ```sh
 xrpl key generate issuer --show-secret        # the 16-byte seed IS the backup
@@ -129,7 +129,7 @@ xrpl account fund issuer --network testnet
 
 xrpl tx new Payment --account issuer --field Destination=rDEST… --field Amount=1 \
   | xrpl tx autofill --network testnet \
-  | xrpl tx sign --sign-with issuer \
+  | xrpl tx sign \
   | xrpl tx submit --wait --network testnet
 ```
 
@@ -148,8 +148,24 @@ For a script, `key show` and `account show` answer one field at a time:
 nothing prints nothing at all, which keeps `$(xrpl account show issuer --tag)`
 empty rather than the word "none". `account show --default-signer` answers which
 key the record names — the recorded default, or the only key when there is one —
-and that is the value to hand `tx sign --sign-with`. `tx sign` does not read
-account records itself, so the key still has to be named.
+and `tx sign` uses that same choice when no key or seed is supplied. It matches
+the transaction's `Account` address to a unique saved account, independently of
+`XRPL_ACCOUNT` and the CLI's default account. The key must derive that address;
+regular keys require explicit selection. This is offline selection, not a check
+of current ledger authorization (for example, whether the master key is disabled).
+
+Use `xrpl tx sign --key issuer` or `xrpl tx sign -k issuer` to choose explicitly.
+`--sign-with` remains a hidden compatibility alias. An account with several keys
+needs `--key` unless `--default-signer` was recorded. Multiple saved accounts for
+one address are ambiguous and also need `--key`. Multisigning requires an explicit
+key or seed source, for example `xrpl tx sign --multisign -k signer-1`.
+
+An explicit key takes precedence over seed inputs; explicit seed inputs bypass
+account lookup. If there is no matching saved account, the existing terminal seed
+prompt remains available. A broken, ambiguous or unavailable account signer is an
+error, never a reason to fall back to another key. Automatic selection for a stream
+requires the same `Account` on every line; choose an explicit key or seed, or sign
+each account separately, for mixed-account input. The key is unlocked only once.
 
 The passphrase comes from a prompt, or from `XRPL_PASSPHRASE` when there is no
 terminal — stdin carries the transaction, so it cannot travel that way.
@@ -218,7 +234,7 @@ for d in "${destinations[@]}"; do
   xrpl tx new Payment --account issuer --destination "$d" --amount 25000000
 done \
   | xrpl tx autofill --sequence-from-auto --network testnet \
-  | xrpl tx sign --sign-with issuer \
+  | xrpl tx sign --key issuer \
   | xrpl tx submit --wait --network testnet
 ```
 
@@ -240,7 +256,7 @@ parallel without serialising on the account.
 
 ```bash
 xrpl tx new TicketCreate --account issuer --ticket-count 3 \
-  | xrpl tx autofill --network testnet | xrpl tx sign --sign-with issuer \
+  | xrpl tx autofill --network testnet | xrpl tx sign --key issuer \
   | xrpl tx submit --wait --network testnet
 
 xrpl tx new Payment --account issuer --destination rDEST… --amount 1 \
@@ -259,7 +275,7 @@ XLS-56, and not yet on mainnet.
 ```bash
 xrpl tx new Payment --account issuer --destination rDEST… --amount 1 --field Fee=200 \
   | xrpl tx batch wrap --account issuer --flag tfAllOrNothing --sequence 42 --base-fee 200 \
-  | xrpl tx sign --sign-with issuer \
+  | xrpl tx sign --key issuer \
   | xrpl tx submit --wait --network testnet
 ```
 
@@ -273,8 +289,8 @@ inner ID it commits to.
 
 `--batch-sign-with` adds `BatchSigners` entries over the `BCH\0` pre-image for
 the *other* accounts whose transactions are in the batch. That is a different
-array over different bytes from `--sign-with`'s `Signers`, which multisigns the
-outer transaction, so both can be present at once.
+array over different bytes from `tx sign --multisign --key`'s `Signers`, which
+multisigns the outer transaction, so both can be present at once.
 
 **The outer transaction returns `tesSUCCESS` even when inner transactions
 fail.** So `tx submit` reports each one on stdout and exits 3 if any failed:

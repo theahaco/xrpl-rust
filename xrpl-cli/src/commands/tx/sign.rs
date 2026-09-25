@@ -38,12 +38,14 @@ pub struct Cmd {
 
 impl Cmd {
     pub fn run(&self) -> Result<(), Error> {
-        // Resolve the key before anything else, and before any runtime exists:
+        let mut transactions = io::read_txs(&self.input.tx)?;
+
+        // Read Account before selecting its signer, but before any runtime exists:
         // an interactive prompt inside a `block_on` panics, and only on the
         // interactive path, so CI would never see it.
         // Once per invocation, not once per transaction: a stream must never
         // mean a passphrase prompt per line.
-        let signer = self.signing.signer()?;
+        let signer = self.signing.signer(&transactions, self.multisign)?;
 
         // A plain `s…` seed always derives secp256k1. A seed a user believes is
         // Ed25519 therefore signs validly, as an address they do not control —
@@ -56,8 +58,6 @@ impl Cmd {
                 .map_err(|error| Error::other(error.to_string()))?,
             signer.algorithm()
         ));
-
-        let mut transactions = io::read_txs(&self.input.tx)?;
 
         // Once for the whole stream, never once per line. A prompt per
         // transaction would make a stream unusable, and the thing worth

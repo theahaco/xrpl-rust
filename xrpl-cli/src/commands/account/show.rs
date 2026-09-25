@@ -152,14 +152,12 @@ impl Cmd {
         }
 
         if self.default_signer {
-            // Which key this record names, resolved the one way the record
-            // itself defines it. Note that it is not yet what `tx sign` reads:
-            // that takes `--sign-with` and consults no account record, so this
-            // answers "which key is this account's" and is the value to pass.
+            // The same default-or-sole-key rule used by automatic tx signing.
+            // Signing additionally checks address identity and ambiguity.
             return match record.signer_key(None) {
                 Ok(id) => Ok(Some(vec![id.to_string()])),
                 // `signer_key`'s own message for this case tells the caller to
-                // pass `--sign-with`, which is a `tx sign` flag: sound advice
+                // pass `--key`, which is a `tx sign` flag: sound advice
                 // where it was written, a dead end from a command that has no
                 // such flag and is only being asked to read a record.
                 Err(_) if !record.keys.is_empty() => Err(Error::other(format!(
